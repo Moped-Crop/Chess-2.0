@@ -1,0 +1,19 @@
+node_modules
+dist
+dist-ssr
+*.local
+.DS_Store
+*.log
+
+# секреты и окружение
+.env
+.env.*
+!.env.example
+
+# артефакты тестов
+coverage
+playwright-report
+test-results
+
+# локальные настройки Claude Code
+.claude/settings.local.json
