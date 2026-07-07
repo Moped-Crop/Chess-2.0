@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Board } from './components/Board';
 import { TopBar } from './components/TopBar';
 import { PlayerBar } from './components/PlayerBar';
@@ -27,12 +27,6 @@ export function App() {
   const [tab, setTab] = useState<Tab>('game');
 
   useClockTicker();
-
-  // Светлая/тёмная тема применяется на уровне документа (CSS-токены).
-  const uiTheme = useGameStore((s) => s.uiTheme);
-  useEffect(() => {
-    document.documentElement.dataset.theme = uiTheme;
-  }, [uiTheme]);
 
   const orientation = useGameStore((s) => s.orientation);
   const turn = useGameStore((s) => s.game.turn);
