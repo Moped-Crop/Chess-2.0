@@ -5,8 +5,20 @@ import { capturedBy, materialScore } from '../material';
 import { MiniPiece } from './MiniPiece';
 import { useT } from '../i18n';
 
-/** Панель игрока: аватар-фишка, имя, индикатор хода, часы, взятые фигуры. */
-export function PlayerBar({ color }: { color: Color }) {
+/**
+ * Панель игрока: аватар-фишка, имя, индикатор хода, часы, взятые фигуры.
+ * Пропсы displayName/avatarBase64 необязательны: без них поведение прежнее
+ * («Белые»/«Чёрные»), с ними — реальные имя и аватар (онлайн-режим).
+ */
+export function PlayerBar({
+  color,
+  displayName,
+  avatarBase64,
+}: {
+  color: Color;
+  displayName?: string;
+  avatarBase64?: string | null;
+}) {
   const t = useT();
   const clock = useGameStore((s) => s.clock);
   const turn = useGameStore((s) => s.game.turn);
@@ -24,11 +36,17 @@ export function PlayerBar({ color }: { color: Color }) {
   return (
     <div className={`player ${active ? 'active' : ''}`}>
       <div className="player-main">
-        <span className={`player-avatar ${color}`}>
-          <MiniPiece type="K" color={color} size={22} />
-        </span>
+        {avatarBase64 ? (
+          <img className="avatar player-avatar-img" src={avatarBase64} alt="" width={36} height={36} />
+        ) : (
+          <span className={`player-avatar ${color}`}>
+            <MiniPiece type="K" color={color} size={22} />
+          </span>
+        )}
         <span className="player-info">
-          <span className="player-name">{color === 'white' ? t('white') : t('black')}</span>
+          <span className="player-name">
+            {displayName ?? (color === 'white' ? t('white') : t('black'))}
+          </span>
           {sorted.length > 0 && (
             <span className="player-captures">
               {sorted.map((p, i) => (

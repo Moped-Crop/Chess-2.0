@@ -12,6 +12,7 @@ import { loadEnv } from './env';
 import { createPool } from './db/pool';
 import { runMigrations } from './db/migrate';
 import { createApp } from './app';
+import { attachGameSockets } from './sockets/game';
 
 const env = loadEnv();
 const pool = await createPool(env.DATABASE_URL);
@@ -27,6 +28,8 @@ export const io = new SocketIOServer(httpServer, {
   // В деве фронт ходит через vite-прокси с того же origin; CORS не нужен.
   serveClient: false,
 });
+
+attachGameSockets(io, pool, env);
 
 httpServer.listen(env.PORT, () => {
   console.log(`Chess 2 server: http://localhost:${env.PORT} (${env.NODE_ENV})`);

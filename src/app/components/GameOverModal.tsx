@@ -1,16 +1,20 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../store/gameStore';
 import { isKingInCheck, legalMoves } from '../../engine';
 import { useT } from '../i18n';
 
 /**
- * Окно «Конец партии»: появляется после мата, пата/ничьих и падения флага.
- * Показывает результат и причину, предлагает начать новую партию.
+ * Окно «Конец партии»: мат, пат/ничьи, падение флага; в онлайне — также
+ * сдача и уход соперника. В онлайн-режиме вместо «Новой партии» — «В меню».
  */
 export function GameOverModal() {
   const t = useT();
+  const navigate = useNavigate();
   const game = useGameStore((s) => s.game);
   const clock = useGameStore((s) => s.clock);
+  const mode = useGameStore((s) => s.mode);
+  const onlineEndReason = useGameStore((s) => s.onlineEndReason);
   const newGame = useGameStore((s) => s.newGame);
 
   const over = game.result !== 'ongoing';
@@ -23,11 +27,14 @@ export function GameOverModal() {
 
   if (!over || !open) return null;
 
-  const flagged = clock !== null && (clock.whiteMs <= 0 || clock.blackMs <= 0);
   let reason: string;
-  if (game.result === 'draw') {
+  if (mode === 'online' && onlineEndReason === 'resign') {
+    reason = t('reasonResign');
+  } else if (mode === 'online' && onlineEndReason === 'abandon') {
+    reason = t('reasonAbandon');
+  } else if (game.result === 'draw') {
     reason = t('reasonDraw');
-  } else if (flagged) {
+  } else if (clock !== null && (clock.whiteMs <= 0 || clock.blackMs <= 0)) {
     reason = t('reasonTime');
   } else {
     // Проигравший — тот, чья очередь хода; мат = он под шахом без ходов.
@@ -61,15 +68,27 @@ export function GameOverModal() {
         <h3 className="gameover-title">{title}</h3>
         <p className="gameover-reason">{reason}</p>
         <div className="gameover-actions">
-          <button
-            className="btn btn-primary btn-lg btn-block"
-            onClick={() => {
-              setOpen(false);
-              newGame();
-            }}
-          >
-            {t('newGame')}
-          </button>
+          {mode === 'online' ? (
+            <button
+              className="btn btn-primary btn-lg btn-block"
+              onClick={() => {
+                setOpen(false);
+                navigate('/menu');
+              }}
+            >
+              {t('toMenu')}
+            </button>
+          ) : (
+            <button
+              className="btn btn-primary btn-lg btn-block"
+              onClick={() => {
+                setOpen(false);
+                newGame();
+              }}
+            >
+              {t('newGame')}
+            </button>
+          )}
           <button className="btn btn-ghost btn-block" onClick={() => setOpen(false)}>
             {t('close')}
           </button>

@@ -12,6 +12,8 @@ import { RegisterPage } from './pages/RegisterPage';
 import { MenuPage } from './pages/MenuPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { FriendsPage } from './pages/FriendsPage';
+import { OnlineGamePage } from './pages/OnlineGamePage';
+import { InviteLayer } from './components/InviteLayer';
 import { useAuthStore } from './store/authStore';
 import { useGameStore } from './store/gameStore';
 import { useT } from './i18n';
@@ -49,7 +51,9 @@ export function AppRouter() {
   }, [init]);
 
   return (
-    <Routes>
+    <>
+      <InviteLayer />
+      <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route
@@ -77,8 +81,17 @@ export function AppRouter() {
         }
       />
       <Route path="/play/local" element={<App />} />
+      <Route
+        path="/play/online/:gameId"
+        element={
+          <RequireAuth>
+            <OnlineGamePage />
+          </RequireAuth>
+        }
+      />
       <Route path="/" element={<HomeRedirect />} />
       <Route path="*" element={<HomeRedirect />} />
-    </Routes>
+      </Routes>
+    </>
   );
 }

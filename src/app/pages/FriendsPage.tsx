@@ -8,6 +8,7 @@ import {
   type FriendsList,
 } from '../api/friends';
 import { ApiError } from '../api/client';
+import { connectSocket } from '../net/socket';
 import { useT, type StrKey } from '../i18n';
 import { PageShell } from './PageShell';
 import { Avatar } from './MenuPage';
@@ -33,6 +34,7 @@ export function FriendsPage() {
   const [username, setUsername] = useState('');
   const [error, setError] = useState<StrKey | null>(null);
   const [notice, setNotice] = useState(false);
+  const [invitedId, setInvitedId] = useState<number | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -138,8 +140,17 @@ export function FriendsPage() {
               {f.user.displayName} <span className="friend-username">@{f.user.username}</span>
             </span>
             <div className="btn-row friend-actions">
-              <button className="btn btn-subtle" disabled title={t('menuOnlineSub')}>
-                ⚔ {t('inviteToGame')}
+              <button
+                className="btn btn-subtle"
+                disabled={invitedId === f.user.id}
+                title={t('menuOnlineSub')}
+                onClick={() => {
+                  connectSocket().emit('friend-invite', { toUserId: f.user.id });
+                  setInvitedId(f.user.id);
+                  window.setTimeout(() => setInvitedId(null), 5000);
+                }}
+              >
+                ⚔ {invitedId === f.user.id ? t('inviteSentNotice') : t('inviteToGame')}
               </button>
               <button
                 className="btn btn-ghost"
