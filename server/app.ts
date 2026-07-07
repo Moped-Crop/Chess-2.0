@@ -14,6 +14,8 @@ import cookieParser from 'cookie-parser';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Env } from './env';
+import { issueCsrfToken, requireCsrf } from './middleware/csrf';
+import { authRouter } from './routes/auth';
 
 export interface AppDeps {
   pool: pg.Pool;
@@ -49,6 +51,12 @@ export function createApp({ pool, env }: AppDeps): express.Express {
       res.status(500).json({ ok: false, db: 'error' });
     }
   });
+
+  // CSRF: выдача токена + проверка на всех изменяющих запросах к API.
+  app.get('/api/csrf', (req, res) => issueCsrfToken(req, res, env.isProd));
+  app.use('/api', requireCsrf);
+
+  app.use('/api/auth', authRouter(pool, env));
 
   // Продакшен: этот же процесс отдаёт собранный фронтенд из dist/.
   if (env.isProd) {

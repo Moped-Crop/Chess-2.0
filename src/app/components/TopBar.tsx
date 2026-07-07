@@ -1,33 +1,28 @@
+import { Link } from 'react-router-dom';
 import { useGameStore } from '../store/gameStore';
+import { useAuthStore } from '../store/authStore';
 import { useT, useLang } from '../i18n';
+import { Brand } from './Brand';
 
-/** Верхняя панель: бренд, переключатель языка и кнопка обучения. */
+/** Верхняя панель: бренд, тема, язык, кнопка обучения; для авторизованных —
+ *  возврат в главное меню. */
 export function TopBar({ onHelp }: { onHelp: () => void }) {
   const t = useT();
   const lang = useLang();
   const setLang = useGameStore((s) => s.setLang);
-
   const uiTheme = useGameStore((s) => s.uiTheme);
   const setUiTheme = useGameStore((s) => s.setUiTheme);
+  const authed = useAuthStore((s) => s.status === 'authed');
 
   return (
     <header className="topbar">
-      <div className="brand">
-        <span className="brand-mark" aria-hidden>
-          <svg viewBox="0 0 24 24" width="26" height="26">
-            <path
-              d="M12 2l2.4 4.8L19 5.4l-1.6 4.8L21 13l-4.4 1.6.8 5-5.4-2-5.4 2 .8-5L3 13l3.6-2.8L5 5.4l4.6 1.4z"
-              fill="currentColor"
-              opacity="0.9"
-            />
-          </svg>
-        </span>
-        <span className="brand-logo">
-          Chess&nbsp;2<span className="brand-dot">·</span>ASCENT
-        </span>
-        <span className="brand-sub">{t('subtitle')}</span>
-      </div>
+      <Brand />
       <div className="topbar-actions">
+        {authed && (
+          <Link className="btn btn-ghost" to="/menu">
+            ← {t('menuBack')}
+          </Link>
+        )}
         <button
           className="theme-toggle"
           role="switch"
@@ -43,10 +38,7 @@ export function TopBar({ onHelp }: { onHelp: () => void }) {
               </g>
             </svg>
             <svg className="icon-moon" viewBox="0 0 24 24" width="13" height="13" aria-hidden>
-              <path
-                d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"
-                fill="currentColor"
-              />
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" fill="currentColor" />
             </svg>
             <span className="theme-toggle-knob" />
           </span>
