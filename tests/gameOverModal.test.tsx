@@ -5,12 +5,19 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render as rtlRender, screen, cleanup } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import type { ReactElement } from 'react';
 import { GameOverModal } from '../src/app/components/GameOverModal';
 import { useGameStore } from '../src/app/store/gameStore';
 import { sq } from '../src/engine/board';
 import { emptyBoard, makePiece, makeState } from './helpers';
 import { createInitialState } from '../src/engine';
+
+/** Компонент использует useNavigate → рендерим внутри MemoryRouter. */
+function render(el: ReactElement) {
+  return rtlRender(<MemoryRouter>{el}</MemoryRouter>);
+}
 
 /** Матовая позиция: чёрный Кр a8, белый Ф b7 под защитой Кр c6, ход чёрных. */
 function mateBoard() {

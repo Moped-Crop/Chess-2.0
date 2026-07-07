@@ -7,7 +7,7 @@
  */
 
 import { create } from 'zustand';
-import type { GameState, Move, Piece, Square } from '../../engine/types';
+import type { Color, GameResult, GameState, Move, Piece, Square } from '../../engine/types';
 import {
   createInitialState,
   legalMoves,
@@ -38,9 +38,17 @@ import {
   presetById,
   type ClockState,
 } from '../clock/clock';
+import { emitMove } from '../net/socket';
 
 export type Orientation = 'white' | 'black' | 'auto';
 export type UiTheme = 'dark' | 'light';
+export type GameMode = 'local' | 'online';
+
+/** Противник в онлайн-партии (для PlayerBar). */
+export interface OpponentInfo {
+  displayName: string;
+  avatarBase64: string | null;
+}
 
 interface PendingChoice {
   from: Square;
@@ -85,6 +93,33 @@ interface GameStore {
   volume: number; // 0..1 — громкость всех звуков
   lang: Lang;
 
+  // --- Онлайн-режим (mode='local' — всё поведение прежнее) ---
+  mode: GameMode;
+  onlineGameId: number | null;
+  myColor: Color | null;
+  opponent: OpponentInfo | null;
+  /** Причина завершения онлайн-партии ('game' — мат/ничья по правилам). */
+  onlineEndReason: 'game' | 'resign' | 'abandon' | null;
+
+  /** Применить ПОДТВЕРЖДЁННЫЙ ход (общий путь локального и онлайн-режима). */
+  applyConfirmedMove: (move: Move) => void;
+  /** Оптимистично применить свой ход и отправить на сервер. */
+  submitOnlineMove: (move: Move) => void;
+  /** Ход соперника, пришедший по сокету. */
+  applyRemoteMove: (move: Move) => void;
+  /** Загрузка/ресинхронизация онлайн-партии: проигрываем ходы с начала. */
+  startOnlineGame: (payload: {
+    gameId: number;
+    myColor: Color;
+    opponent: OpponentInfo;
+    moves: Move[];
+    result: GameResult;
+  }) => void;
+  /** Партия завершена сервером (мат/сдача/разрыв соединения). */
+  finishOnlineGame: (result: GameResult, reason: 'game' | 'resign' | 'abandon') => void;
+  /** Выйти из онлайн-режима и вернуть локальный автосейв. */
+  leaveOnlineGame: () => void;
+
   newGame: () => void;
   setPreset: (id: string) => void;
   setOrientation: (o: Orientation) => void;
@@ -115,8 +150,12 @@ export const useGameStore = create<GameStore>((set, get) => {
     });
   };
 
+  /**
+   * Применить подтверждённый ход к состоянию. Общий путь обоих режимов:
+   * локальный клик и ход из сети приводят к одному и тому же применению.
+   */
   const commit = (move: Move): void => {
-    const { game, past, clock, moveLog, captures } = get();
+    const { game, past, clock, moveLog, captures, mode } = get();
     const mover = game.board[move.from];
     const capturedPiece = move.capture !== undefined ? game.board[move.capture] : null;
 
@@ -130,7 +169,8 @@ export const useGameStore = create<GameStore>((set, get) => {
     };
     const nextLog = [...moveLog, entry];
     const nextCaptures = [...captures, capturedPiece];
-    saveGame(next, nextLog, nextCaptures);
+    // Автосейв — только локальные партии; онлайн-партию хранит сервер.
+    if (mode === 'local') saveGame(next, nextLog, nextCaptures);
 
     // Звук по важности события: конец партии > шах > эволюция/превращение >
     // взятие > обычный ход.
@@ -179,6 +219,13 @@ export const useGameStore = create<GameStore>((set, get) => {
     });
   };
 
+  /** Выбор пути хода: локально — сразу применить; онлайн — применить
+   *  оптимистично и отправить на сервер (submitOnlineMove). */
+  const performMove = (move: Move): void => {
+    if (get().mode === 'online') get().submitOnlineMove(move);
+    else commit(move);
+  };
+
   // Применить сохранённую громкость к звуковому движку при старте.
   const initialVolume = Math.min(1, Math.max(0, settings.volume ?? 1));
   setMasterVolume(initialVolume);
@@ -203,6 +250,118 @@ export const useGameStore = create<GameStore>((set, get) => {
     muted: settings.muted ?? false,
     volume: initialVolume,
     lang: (settings.lang as Lang) ?? 'ru',
+
+    mode: 'local',
+    onlineGameId: null,
+    myColor: null,
+    opponent: null,
+    onlineEndReason: null,
+
+    applyConfirmedMove: (move) => commit(move),
+
+    submitOnlineMove: (move) => {
+      const { onlineGameId, moveLog } = get();
+      if (onlineGameId === null) return;
+      const index = moveLog.length; // номер хода ДО применения
+      // Оптимистично: партия идёт между людьми, интерфейс должен отвечать
+      // мгновенно; редкий рассинхрон чинится ресинком по move-rejected.
+      commit(move);
+      emitMove(onlineGameId, move, index);
+    },
+
+    applyRemoteMove: (move) => {
+      const { game, mode } = get();
+      if (mode !== 'online' || game.result !== 'ongoing') return;
+      // Свой оптимистичный ход не приходит эхом (сервер шлёт остальным),
+      // но на всякий случай не применяем ход «за себя».
+      if (game.turn === get().myColor) return;
+      commit(move);
+    },
+
+    startOnlineGame: ({ gameId, myColor, opponent, moves, result }) => {
+      // Восстановление с нуля: та же логика, что на сервере, — движок один.
+      let g = createInitialState();
+      const log: MoveEntry[] = [];
+      const caps: (Piece | null)[] = [];
+      for (const m of moves) {
+        const mover = g.board[m.from];
+        caps.push(m.capture !== undefined ? g.board[m.capture] : null);
+        const applied = applyMove(g, m);
+        g = { ...applied, result: computeResult(applied) };
+        log.push({
+          color: mover?.color ?? 'white',
+          pieceType: mover ? mover.type : 'P',
+          san: moveSan(m, g),
+        });
+      }
+      if (result !== 'ongoing') g = { ...g, result };
+      const last = moves.length > 0 ? moves[moves.length - 1] : null;
+      set({
+        game: g,
+        past: [],
+        selected: null,
+        legal: g.result === 'ongoing' ? legalMoves(g) : [],
+        pending: null,
+        lastMove: last ? { from: last.from, to: last.to } : null,
+        lastAction: null,
+        clock: null,
+        moveLog: log,
+        captures: caps,
+        mode: 'online',
+        onlineGameId: gameId,
+        myColor,
+        opponent,
+        onlineEndReason: null,
+        // Своя сторона всегда снизу; настройка ориентации не перезаписывается.
+        orientation: myColor,
+      });
+    },
+
+    finishOnlineGame: (result, reason) => {
+      const { game, muted } = get();
+      if (result === 'ongoing') return;
+      if (game.result !== 'ongoing') {
+        // Результат уже применён оптимистичным ходом — дописываем причину.
+        set({ onlineEndReason: reason });
+        return;
+      }
+      if (!muted) {
+        if (result === 'draw') drawSound();
+        else victorySound();
+      }
+      set({
+        game: { ...game, result },
+        legal: [],
+        pending: null,
+        selected: null,
+        onlineEndReason: reason,
+      });
+    },
+
+    leaveOnlineGame: () => {
+      if (get().mode !== 'online') return;
+      // Возвращаем локальный автосейв — «Играть на одном ПК» не пострадала.
+      const saved = loadGame();
+      const g = saved?.game ?? createInitialState();
+      set({
+        game: g,
+        past: [],
+        selected: null,
+        legal: g.result === 'ongoing' ? legalMoves(g) : [],
+        pending: null,
+        lastMove: null,
+        lastAction: null,
+        clock: null,
+        moveLog: saved?.moveLog ?? [],
+        captures: saved?.captures ?? [],
+        mode: 'local',
+        onlineGameId: null,
+        myColor: null,
+        opponent: null,
+        onlineEndReason: null,
+        orientation: (loadSettings().orientation as Orientation) ?? 'white',
+      });
+    },
 
     newGame: () => {
       const g = createInitialState();
@@ -275,8 +434,10 @@ export const useGameStore = create<GameStore>((set, get) => {
     },
 
     clickSquare: (s) => {
-      const { game, selected, legal, pending } = get();
+      const { game, selected, legal, pending, mode, myColor } = get();
       if (pending || game.result !== 'ongoing') return;
+      // Онлайн: ходить можно только своим цветом и только в свою очередь.
+      if (mode === 'online' && game.turn !== myColor) return;
 
       if (selected !== null) {
         // Дедупликация по смыслу хода: движок не должен выдавать дубли, но если
@@ -290,7 +451,7 @@ export const useGameStore = create<GameStore>((set, get) => {
           return true;
         });
         if (variants.length === 1) {
-          commit(variants[0]);
+          performMove(variants[0]);
           return;
         }
         if (variants.length > 1) {
@@ -302,7 +463,7 @@ export const useGameStore = create<GameStore>((set, get) => {
             set({ pending: { from: selected, to: s, moves: variants, kind: 'promotion' } });
           } else {
             // Аномалия генератора: выбора по правилам нет — выполняем ход без окна.
-            commit(variants[0]);
+            performMove(variants[0]);
           }
           return;
         }
@@ -312,11 +473,12 @@ export const useGameStore = create<GameStore>((set, get) => {
       set({ selected: p && p.color === game.turn ? s : null });
     },
 
-    resolveChoice: (move) => commit(move),
+    resolveChoice: (move) => performMove(move),
     cancelChoice: () => set({ pending: null, selected: null }),
 
     undo: () => {
-      const { past, moveLog, captures } = get();
+      const { past, moveLog, captures, mode } = get();
+      if (mode === 'online') return; // в сетевой партии отмена невозможна
       if (past.length === 0) return;
       const prev = past[past.length - 1];
       const prevLog = moveLog.slice(0, -1);
