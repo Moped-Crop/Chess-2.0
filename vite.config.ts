@@ -8,10 +8,11 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: true,
-    // Dev-прокси: фронт на :5173 прозрачно ходит в backend на :3001 (без CORS).
+    // Dev-прокси: фронт на :5173 прозрачно ходит в backend (без CORS).
+    // API_PORT переопределяется в E2E, чтобы не конфликтовать с dev-сервером.
     proxy: {
-      '/api': 'http://localhost:3001',
-      '/socket.io': { target: 'ws://localhost:3001', ws: true },
+      '/api': `http://localhost:${process.env.API_PORT ?? '3001'}`,
+      '/socket.io': { target: `ws://localhost:${process.env.API_PORT ?? '3001'}`, ws: true },
     },
   },
   test: {

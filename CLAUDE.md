@@ -132,6 +132,28 @@ app/      store/, components/, persistence/, i18n/, App.tsx, main.tsx
 
 ---
 
+## Онлайн-слой (добавлен после MVP)
+
+Проект вырос за пределы MVP: есть аккаунты, друзья и онлайн-партии 1×1.
+
+- `server/` — Express + Socket.IO + PostgreSQL (`pg`, сырой SQL, миграции в
+  `server/db/migrations/`). `server/gameEngine.ts` импортирует движок НАПРЯМУЮ
+  из `src/engine` — отдельной серверной реализации правил НЕТ и быть не должно.
+- Онлайн — **второй контроллер ходов** поверх того же `gameStore`:
+  `mode: 'local' | 'online'`; общий путь применения — `applyConfirmedMove`;
+  свой ход онлайн идёт через `submitOnlineMove` (оптимистично + socket),
+  ход соперника — `applyRemoteMove`. Локальный режим не изменён.
+- Безопасность: JWT в httpOnly-cookie, CSRF double-submit, zod-валидация всего
+  входа, rate limiting (REST + token-bucket на сокетах), helmet.
+- Секреты в `.env` (DATABASE_URL, JWT_SECRET); `NODE_ENV` — в `.env.server`
+  (в `.env` его класть НЕЛЬЗЯ — Vite сломает прод-сборку React).
+- Тесты сервера и интеграционные — на `pg-mem` (`DATABASE_URL=memory://`
+  поддерживается самим сервером); боевую БД тестами не трогать.
+- Разработка: `npm run dev:all` (vite :5173 + tsx watch server :3001,
+  прокси `/api` и `/socket.io` в vite.config.ts). E2E: `npm run test:e2e`.
+
+---
+
 ## Что НЕ входит в MVP (вырезано в Pre-Code Audit §4)
 
 - IndexedDB (только localStorage), PWA/offline, второй язык i18n.

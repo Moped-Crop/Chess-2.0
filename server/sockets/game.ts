@@ -120,7 +120,11 @@ export function attachGameSockets(io: Server, pool: pg.Pool, env: Env): void {
       'SELECT id, white_id, black_id, status, result, moves FROM games WHERE id = $1',
       [gameId],
     );
-    return (r.rows[0] as GameRow | undefined) ?? null;
+    const row = r.rows[0] as GameRow | undefined;
+    if (!row) return null;
+    // pg возвращает jsonb разобранным, pg-mem — строкой; нормализуем.
+    if (typeof row.moves === 'string') row.moves = JSON.parse(row.moves) as Move[];
+    return row;
   }
 
   async function updateStats(whiteId: number, blackId: number, result: GameResult): Promise<void> {
