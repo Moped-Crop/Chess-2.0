@@ -16,6 +16,8 @@ import { fileURLToPath } from 'node:url';
 import type { Env } from './env';
 import { issueCsrfToken, requireCsrf } from './middleware/csrf';
 import { authRouter } from './routes/auth';
+import { profileRouter } from './routes/profile';
+import { friendsRouter } from './routes/friends';
 
 export interface AppDeps {
   pool: pg.Pool;
@@ -57,6 +59,8 @@ export function createApp({ pool, env }: AppDeps): express.Express {
   app.use('/api', requireCsrf);
 
   app.use('/api/auth', authRouter(pool, env));
+  app.use('/api', profileRouter(pool, env));
+  app.use('/api/friends', friendsRouter(pool, env));
 
   // Продакшен: этот же процесс отдаёт собранный фронтенд из dist/.
   if (env.isProd) {
