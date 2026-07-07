@@ -10,6 +10,8 @@ import { App } from './App';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { MenuPage } from './pages/MenuPage';
+import { ProfilePage } from './pages/ProfilePage';
+import { FriendsPage } from './pages/FriendsPage';
 import { useAuthStore } from './store/authStore';
 import { useGameStore } from './store/gameStore';
 import { useT } from './i18n';
@@ -55,6 +57,22 @@ export function AppRouter() {
         element={
           <RequireAuth>
             <MenuPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <RequireAuth>
+            <ProfilePage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/friends"
+        element={
+          <RequireAuth>
+            <FriendsPage />
           </RequireAuth>
         }
       />
