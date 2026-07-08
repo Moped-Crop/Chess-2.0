@@ -16,13 +16,12 @@ const REQUIRED = [
   'DATABASE_URL',
   'JWT_SECRET',
   'NODE_ENV',
-  // Почта (Gmail SMTP) и шифрование секретов 2FA — сервер не должен стартовать
-  // с частично отсутствующими секретами (иначе письма/2FA молча ломаются).
-  'SMTP_HOST',
-  'SMTP_PORT',
-  'SMTP_USER',
-  'SMTP_PASS',
-  'SMTP_FROM',
+  // Почта (Brevo HTTP-API) и шифрование секретов 2FA — сервер не должен
+  // стартовать с частично отсутствующими секретами (иначе письма/2FA молча
+  // ломаются). Через SMTP письма не шлём: Railway режет SMTP-порты, поэтому
+  // используется HTTP-API Brevo (порт 443).
+  'BREVO_API_KEY',
+  'MAIL_FROM',
   'APP_URL',
   'TOTP_ENCRYPTION_KEY',
 ] as const;
@@ -33,11 +32,10 @@ export interface Env {
   NODE_ENV: string;
   PORT: number;
   isProd: boolean;
-  SMTP_HOST: string;
-  SMTP_PORT: number;
-  SMTP_USER: string;
-  SMTP_PASS: string;
-  SMTP_FROM: string;
+  /** API-ключ Brevo (транзакционная почта через HTTP, не SMTP). */
+  BREVO_API_KEY: string;
+  /** Отправитель писем, формат `"Имя" <email@x>`. */
+  MAIL_FROM: string;
   APP_URL: string;
   /** 32-байтовый ключ (hex) для AES-256-GCM шифрования секретов TOTP в базе. */
   TOTP_ENCRYPTION_KEY: string;
@@ -59,11 +57,8 @@ export function loadEnv(): Env {
     NODE_ENV: process.env.NODE_ENV!,
     PORT: Number(process.env.PORT ?? 3001),
     isProd: process.env.NODE_ENV === 'production',
-    SMTP_HOST: process.env.SMTP_HOST!,
-    SMTP_PORT: Number(process.env.SMTP_PORT),
-    SMTP_USER: process.env.SMTP_USER!,
-    SMTP_PASS: process.env.SMTP_PASS!,
-    SMTP_FROM: process.env.SMTP_FROM!,
+    BREVO_API_KEY: process.env.BREVO_API_KEY!,
+    MAIL_FROM: process.env.MAIL_FROM!,
     APP_URL: process.env.APP_URL!,
     TOTP_ENCRYPTION_KEY: process.env.TOTP_ENCRYPTION_KEY!,
   };
