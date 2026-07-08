@@ -19,11 +19,8 @@ export const TEST_ENV: Env = {
   NODE_ENV: 'test',
   PORT: 0,
   isProd: false,
-  SMTP_HOST: 'smtp.example.test',
-  SMTP_PORT: 465,
-  SMTP_USER: 'test@example.test',
-  SMTP_PASS: 'test-app-password',
-  SMTP_FROM: '"Chess 2 · ASCENT" <test@example.test>',
+  BREVO_API_KEY: 'test-brevo-key',
+  MAIL_FROM: '"Chess 2 · ASCENT" <test@example.test>',
   APP_URL: 'http://localhost:5173',
   // 32 байта в hex — валидный ключ для AES-256-GCM в тестах.
   TOTP_ENCRYPTION_KEY: '0'.repeat(64),

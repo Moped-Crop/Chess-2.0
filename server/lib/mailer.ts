@@ -1,16 +1,29 @@
 /**
- * Отправка писем через SMTP (Gmail) поверх nodemailer.
+ * Отправка писем через транзакционный HTTP-API Brevo (порт 443).
  *
- * Один транспорт создаётся один раз при старте (createMailer). sendMail не
- * бросает исключение наружу — логирует ошибку и возвращает признак успеха,
- * чтобы вызывающий код (регистрация, восстановление) сам решал, как реагировать
- * (например, аккаунт всё равно создаётся, а письмо можно переотправить кнопкой).
+ * Почему не SMTP: Railway режет исходящие SMTP-порты (25/465/587) на всех
+ * тарифах кроме Pro, поэтому Gmail SMTP оттуда недоступен. Brevo шлёт письма
+ * обычным HTTPS-запросом, который не блокируется. Домен не нужен — достаточно
+ * подтвердить один адрес-отправитель в панели Brevo.
+ *
+ * sendMail не бросает исключение наружу — логирует причину и возвращает признак
+ * успеха, чтобы вызывающий код (регистрация, восстановление) сам решал, как
+ * реагировать (аккаунт всё равно создаётся, письмо можно переотправить кнопкой).
  *
  * Тексты писем — на двух языках (ru/en), по умолчанию ru.
  */
 
-import nodemailer, { type Transporter } from 'nodemailer';
 import type { Env } from '../env';
+
+const BREVO_ENDPOINT = 'https://api.brevo.com/v3/smtp/email';
+const SEND_TIMEOUT_MS = 15_000;
+
+/** Разобрать `"Имя" <email@x>` в объект отправителя Brevo. */
+function parseFrom(raw: string): { name: string; email: string } {
+  const m = raw.match(/^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/);
+  if (m) return { name: m[1].trim() || 'Chess 2 · ASCENT', email: m[2].trim() };
+  return { name: 'Chess 2 · ASCENT', email: raw.trim() };
+}
 
 export type Lang = 'ru' | 'en';
 
@@ -127,26 +140,7 @@ function para(text: string, color = '#c7ccda'): string {
 }
 
 export function createMailer(env: Env): Mailer {
-  const transport: Transporter = nodemailer.createTransport({
-    host: env.SMTP_HOST,
-    port: env.SMTP_PORT,
-    secure: env.SMTP_PORT === 465, // 465 → TLS сразу
-    // Gmail App Password показывается с пробелами для читаемости — SMTP-логин
-    // ждёт 16 символов без них. Убираем пробелы на всякий случай.
-    auth: { user: env.SMTP_USER, pass: env.SMTP_PASS.replace(/\s+/g, '') },
-    // Быстрый отказ вместо зависания на минуты, если до SMTP не достучаться.
-    connectionTimeout: 10_000,
-    greetingTimeout: 10_000,
-    socketTimeout: 15_000,
-  });
-
-  // Разовая проверка связи при старте — в логах сразу видно, работает ли SMTP.
-  transport
-    .verify()
-    .then(() => console.log('SMTP: соединение с почтовым сервером установлено.'))
-    .catch((e: unknown) =>
-      console.error('SMTP: не удалось подключиться к почтовому серверу:', errText(e)),
-    );
+  const sender = parseFrom(env.MAIL_FROM);
 
   async function sendMail(msg: {
     to: string;
@@ -155,11 +149,31 @@ export function createMailer(env: Env): Mailer {
     text: string;
   }): Promise<boolean> {
     try {
-      await transport.sendMail({ from: env.SMTP_FROM, ...msg });
+      const res = await fetch(BREVO_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'api-key': env.BREVO_API_KEY,
+          'content-type': 'application/json',
+          accept: 'application/json',
+        },
+        body: JSON.stringify({
+          sender,
+          to: [{ email: msg.to }],
+          subject: msg.subject,
+          htmlContent: msg.html,
+          textContent: msg.text,
+        }),
+        signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
+      });
+      if (!res.ok) {
+        // Тело ответа Brevo (код + сообщение об ошибке) — не секрет, логируем.
+        const body = await res.text().catch(() => '');
+        console.error(`sendMail error → ${msg.to}: HTTP ${res.status} ${body.slice(0, 300)}`);
+        return false;
+      }
       return true;
     } catch (e) {
-      // Не роняем вызывающий код: письмо можно переотправить кнопкой. Причину
-      // (сообщение SMTP, не секрет) логируем и в проде — иначе не отладить.
+      // Не роняем вызывающий код: письмо можно переотправить кнопкой.
       console.error(`sendMail error → ${msg.to}:`, errText(e));
       return false;
     }

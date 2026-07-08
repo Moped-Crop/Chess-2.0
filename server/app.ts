@@ -30,6 +30,11 @@ export interface AppDeps {
 
 export function createApp({ pool, env, mailer }: AppDeps): express.Express {
   const app = express();
+  // За прокси Railway реальный IP клиента приходит в X-Forwarded-For. Доверяем
+  // первому хопу (сам прокси) — иначе express-rate-limit не может корректно
+  // определить клиента и бросает ошибку. Только первый хоп (не true), чтобы
+  // клиент не мог подделать свой IP через заголовок.
+  app.set('trust proxy', 1);
   const mail = mailer ?? createMailer(env);
 
   app.use(
