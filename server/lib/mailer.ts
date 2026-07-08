@@ -14,6 +14,15 @@ import type { Env } from '../env';
 
 export type Lang = 'ru' | 'en';
 
+/** Краткое читаемое описание ошибки SMTP для лога (code + message). */
+function errText(e: unknown): string {
+  if (e && typeof e === 'object') {
+    const err = e as { code?: string; responseCode?: number; message?: string };
+    return [err.code, err.responseCode, err.message].filter(Boolean).join(' ');
+  }
+  return String(e);
+}
+
 export interface Mailer {
   sendMail(msg: { to: string; subject: string; html: string; text: string }): Promise<boolean>;
   sendVerificationEmail(to: string, lang: Lang, link: string): Promise<boolean>;
@@ -122,8 +131,22 @@ export function createMailer(env: Env): Mailer {
     host: env.SMTP_HOST,
     port: env.SMTP_PORT,
     secure: env.SMTP_PORT === 465, // 465 → TLS сразу
-    auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },
+    // Gmail App Password показывается с пробелами для читаемости — SMTP-логин
+    // ждёт 16 символов без них. Убираем пробелы на всякий случай.
+    auth: { user: env.SMTP_USER, pass: env.SMTP_PASS.replace(/\s+/g, '') },
+    // Быстрый отказ вместо зависания на минуты, если до SMTP не достучаться.
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 15_000,
   });
+
+  // Разовая проверка связи при старте — в логах сразу видно, работает ли SMTP.
+  transport
+    .verify()
+    .then(() => console.log('SMTP: соединение с почтовым сервером установлено.'))
+    .catch((e: unknown) =>
+      console.error('SMTP: не удалось подключиться к почтовому серверу:', errText(e)),
+    );
 
   async function sendMail(msg: {
     to: string;
@@ -135,9 +158,9 @@ export function createMailer(env: Env): Mailer {
       await transport.sendMail({ from: env.SMTP_FROM, ...msg });
       return true;
     } catch (e) {
-      // Не роняем вызывающий код: письмо можно переотправить кнопкой.
-      if (!env.isProd) console.error('sendMail error:', e);
-      else console.error('sendMail error');
+      // Не роняем вызывающий код: письмо можно переотправить кнопкой. Причину
+      // (сообщение SMTP, не секрет) логируем и в проде — иначе не отладить.
+      console.error(`sendMail error → ${msg.to}:`, errText(e));
       return false;
     }
   }
