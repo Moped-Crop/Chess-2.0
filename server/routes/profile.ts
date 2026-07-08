@@ -30,7 +30,7 @@ const updateSchema = z
 
 export function profileRouter(pool: pg.Pool, env: Env): Router {
   const router = Router();
-  const auth = requireAuth(env.JWT_SECRET);
+  const auth = requireAuth(pool, env.JWT_SECRET);
 
   const limiter = rateLimit({
     windowMs: 5 * 60 * 1000,

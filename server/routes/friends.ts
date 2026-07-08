@@ -44,7 +44,7 @@ function publicUser(r: FriendUserRow) {
 
 export function friendsRouter(pool: pg.Pool, env: Env): Router {
   const router = Router();
-  const auth = requireAuth(env.JWT_SECRET);
+  const auth = requireAuth(pool, env.JWT_SECRET);
 
   const requestLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,

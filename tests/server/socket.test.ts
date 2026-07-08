@@ -36,7 +36,8 @@ async function makeUser(username: string): Promise<number> {
 }
 
 function connectAs(userId: number): ClientSocket {
-  const token = jwt.sign({ uid: userId }, TEST_ENV.JWT_SECRET, { expiresIn: 3600 });
+  // token_version по умолчанию 0 (см. makeUser) — токен должен нести tv.
+  const token = jwt.sign({ uid: userId, tv: 0 }, TEST_ENV.JWT_SECRET, { expiresIn: 3600 });
   const c = ioClient(`http://127.0.0.1:${port}`, {
     extraHeaders: { Cookie: `token=${token}` },
     reconnection: false,

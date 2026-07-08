@@ -20,6 +20,20 @@ export function errorKey(e: unknown): StrKey {
         return 'errValidation';
       case 'network':
         return 'errNetwork';
+      case 'email_not_verified':
+        return 'errEmailNotVerified';
+      case 'wrong_password':
+        return 'errWrongPassword';
+      case 'invalid_token':
+        return 'errInvalidToken';
+      case 'token_expired':
+        return 'errTokenExpired';
+      case 'totp_invalid':
+        return 'errTotpInvalid';
+      case 'code_invalid':
+        return 'errCodeInvalid';
+      case 'too_many_attempts':
+        return 'errTooManyAttempts';
     }
   }
   return 'errUnknown';

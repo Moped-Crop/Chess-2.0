@@ -14,7 +14,7 @@ beforeEach(async () => {
 
 describe('PUT /api/profile', () => {
   it('updates display name and returns the fresh user', async () => {
-    const u = await registerUser(ctx.app, 'alice');
+    const u = await registerUser(ctx, 'alice');
     const r = await u.agent
       .put('/api/profile')
       .set('X-CSRF-Token', u.csrf)
@@ -24,7 +24,7 @@ describe('PUT /api/profile', () => {
   });
 
   it('accepts a small avatar and rejects an oversized one', async () => {
-    const u = await registerUser(ctx.app, 'alice');
+    const u = await registerUser(ctx, 'alice');
     const small = `data:image/png;base64,${'A'.repeat(2000)}`;
     const ok = await u.agent
       .put('/api/profile')
@@ -42,7 +42,7 @@ describe('PUT /api/profile', () => {
   });
 
   it('rejects unauthenticated update', async () => {
-    const u = await registerUser(ctx.app, 'alice');
+    const u = await registerUser(ctx, 'alice');
     await u.agent.post('/api/auth/logout').set('X-CSRF-Token', u.csrf);
     const r = await u.agent
       .put('/api/profile')
@@ -54,7 +54,7 @@ describe('PUT /api/profile', () => {
 
 describe('GET /api/stats/:userId', () => {
   it('returns zeros for a fresh user', async () => {
-    const u = await registerUser(ctx.app, 'alice');
+    const u = await registerUser(ctx, 'alice');
     const r = await u.agent.get(`/api/stats/${u.id}`);
     expect(r.status).toBe(200);
     expect(r.body.stats).toEqual({ wins: 0, losses: 0, draws: 0, gamesPlayed: 0 });
@@ -63,8 +63,8 @@ describe('GET /api/stats/:userId', () => {
 
 describe('friends flow', () => {
   it('request → accept → both see each other as friends', async () => {
-    const alice = await registerUser(ctx.app, 'alice');
-    const bob = await registerUser(ctx.app, 'bob');
+    const alice = await registerUser(ctx, 'alice');
+    const bob = await registerUser(ctx, 'bob');
 
     const reqR = await alice.agent
       .post('/api/friends/request')
@@ -90,7 +90,7 @@ describe('friends flow', () => {
   });
 
   it('rejects self-request with 400', async () => {
-    const alice = await registerUser(ctx.app, 'alice');
+    const alice = await registerUser(ctx, 'alice');
     const r = await alice.agent
       .post('/api/friends/request')
       .set('X-CSRF-Token', alice.csrf)
@@ -100,8 +100,8 @@ describe('friends flow', () => {
   });
 
   it('rejects duplicate request in any direction with 409', async () => {
-    const alice = await registerUser(ctx.app, 'alice');
-    const bob = await registerUser(ctx.app, 'bob');
+    const alice = await registerUser(ctx, 'alice');
+    const bob = await registerUser(ctx, 'bob');
 
     await alice.agent
       .post('/api/friends/request')
@@ -122,8 +122,8 @@ describe('friends flow', () => {
   });
 
   it('unknown user → 404; only addressee can accept', async () => {
-    const alice = await registerUser(ctx.app, 'alice');
-    await registerUser(ctx.app, 'bob');
+    const alice = await registerUser(ctx, 'alice');
+    await registerUser(ctx, 'bob');
 
     const missing = await alice.agent
       .post('/api/friends/request')
@@ -144,8 +144,8 @@ describe('friends flow', () => {
   });
 
   it('declined request can be re-sent later', async () => {
-    const alice = await registerUser(ctx.app, 'alice');
-    const bob = await registerUser(ctx.app, 'bob');
+    const alice = await registerUser(ctx, 'alice');
+    const bob = await registerUser(ctx, 'bob');
 
     const first = await alice.agent
       .post('/api/friends/request')

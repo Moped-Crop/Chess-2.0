@@ -154,6 +154,48 @@ app/      store/, components/, persistence/, i18n/, App.tsx, main.tsx
 
 ---
 
+## Безопасность аккаунта (фаза 1, добавлено после онлайн-слоя)
+
+Подтверждение почты, восстановление пароля, 2FA, удаление аккаунта. Миграция
+`server/db/migrations/002_account_security.sql`.
+
+- **Подтверждение почты — обязательное.** `register` создаёт аккаунт, но НЕ
+  сессию (отвечает `{ status: 'verify_email_sent', email }`) и шлёт письмо со
+  ссылкой `/verify-email?token=`. `login` при `email_verified = false` отдаёт
+  `403 email_not_verified` и не ставит cookie. `POST /api/auth/verify-email`
+  подтверждает почту и сразу ставит сессию (мгновенный вход из письма).
+  Отсюда **инвариант: любая живая сессия ⇒ почта подтверждена** — отдельной
+  проверки `email_verified` на защищённых роутах нет и не нужно.
+- **Пользователи до этой миграции** помечены `email_verified = true` (колонка
+  добавлена с `DEFAULT true`, затем дефолт переключён на `false` для новых) —
+  им ничего подтверждать не пришлось.
+- **`token_version`** зашит в JWT (`{ uid, tv }`). `requireAuth(pool, secret)`
+  сверяет `tv` с базой на каждый запрос; та же сверка на подключении сокета.
+  Смена пароля и удаление увеличивают `token_version` → все прежние сессии на
+  всех устройствах разлогиниваются. При смене пароля инициатору сразу ставится
+  свежая cookie (остаётся в системе).
+- **2FA** — TOTP (`otplib` v13, функциональный API), опционально, с 8
+  резервными кодами. Секрет хранится **зашифрованным** (AES-256-GCM,
+  `TOTP_ENCRYPTION_KEY`). При включённой 2FA `login` отдаёт короткий
+  challenge-JWT (`purpose: 'login2fa'`, 5 мин) **в теле ответа** (не cookie!),
+  затем `POST /api/auth/login/verify-2fa` ставит настоящую сессию.
+- **Удаление аккаунта — это анонимизация, а не `DELETE`** (`games.white_id/
+  black_id` ссылаются на `users(id)` без `ON DELETE CASCADE` — историю партий
+  других игроков ломать нельзя). `username → deleted_user_<id>`, `email →
+  уникальный placeholder`, секреты обнуляются, `deleted_at = NOW()`. Два вызова
+  `POST /api/account/delete`: пароль → код (TOTP или на почту) → подтверждение.
+- **Одноразовые токены писем** — в базе только `sha256`-хэш (как CSRF), не сам
+  токен (высокая энтропия, bcrypt не нужен).
+- **Новые файлы:** `server/lib/{mailer,totp,crypto,tokens,twofactor}.ts`,
+  `server/routes/account.ts`. Почтовик инъектируется в `createApp` (в тестах —
+  записывающий фейк из `tests/server/testApp.ts`). Тесты — на `pg-mem`.
+  Особенности pg-mem: UNIQUE-индекс не терпит `NULL` (поэтому email при
+  удалении — placeholder, а не NULL); конкатенация `text || integer` требует
+  явного `::text`.
+- **Новые env-переменные** (все в `REQUIRED`): `SMTP_HOST/PORT/USER/PASS/FROM`,
+  `APP_URL`, `TOTP_ENCRYPTION_KEY` (32 байта hex, обязан совпадать локально и на
+  Railway).
+
 ## Что НЕ входит в MVP (вырезано в Pre-Code Audit §4)
 
 - IndexedDB (только localStorage), PWA/offline, второй язык i18n.
