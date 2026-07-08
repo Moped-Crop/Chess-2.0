@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { useT, type StrKey } from '../i18n';
+import { useT, useLang, type StrKey } from '../i18n';
 import { AuthShell, errorKey } from './authShared';
+import { CheckEmailNotice } from '../components/CheckEmailNotice';
 
 /** Страница регистрации: логин, email, пароль, отображаемое имя. */
 export function RegisterPage() {
   const t = useT();
-  const navigate = useNavigate();
+  const lang = useLang();
   const register = useAuthStore((s) => s.register);
 
   const [username, setUsername] = useState('');
@@ -16,24 +17,38 @@ export function RegisterPage() {
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState<StrKey | null>(null);
   const [busy, setBusy] = useState(false);
+  // После успеха — экран «проверьте почту» (в игру НЕ переходим).
+  const [sentTo, setSentTo] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      await register({
+      const { email: to } = await register({
         username: username.trim(),
         email: email.trim(),
         password,
         displayName: displayName.trim() || username.trim(),
+        lang,
       });
-      navigate('/menu', { replace: true });
+      setSentTo(to);
     } catch (err) {
       setError(errorKey(err));
     } finally {
       setBusy(false);
     }
+  }
+
+  if (sentTo) {
+    return (
+      <AuthShell title={t('checkEmailTitle')}>
+        <CheckEmailNotice email={sentTo} />
+        <p className="auth-links">
+          <Link to="/login">{t('goLogin')}</Link>
+        </p>
+      </AuthShell>
+    );
   }
 
   return (

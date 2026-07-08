@@ -96,21 +96,35 @@ export function attachGameSockets(io: Server, pool: pg.Pool, env: Env): void {
     const cookies = parseCookies(socket.handshake.headers.cookie ?? '');
     const token = cookies['token'];
     if (!token) return next(new Error('unauthorized'));
+    let payload: { uid?: unknown; tv?: unknown; exp?: number };
     try {
-      const payload = jwt.verify(token, env.JWT_SECRET) as { uid?: unknown; exp?: number };
-      if (typeof payload.uid !== 'number') return next(new Error('unauthorized'));
-      (socket.data as SocketData).userId = payload.uid;
-      (socket.data as SocketData).joinedGames = new Set();
-      // Отключить клиента, когда срок действия токена истечёт.
-      if (payload.exp) {
-        const msLeft = payload.exp * 1000 - Date.now();
-        const timer = setTimeout(() => socket.disconnect(true), Math.max(msLeft, 0));
-        socket.on('disconnect', () => clearTimeout(timer));
-      }
-      next();
+      payload = jwt.verify(token, env.JWT_SECRET) as typeof payload;
     } catch {
-      next(new Error('unauthorized'));
+      return next(new Error('unauthorized'));
     }
+    if (typeof payload.uid !== 'number' || typeof payload.tv !== 'number') {
+      return next(new Error('unauthorized'));
+    }
+    const uid = payload.uid;
+    const tv = payload.tv;
+    // Сверяем token_version с базой при подключении: иначе разлогиненная по
+    // смене пароля/удалению сессия продолжала бы играть через открытый сокет.
+    pool
+      .query('SELECT token_version FROM users WHERE id = $1 AND deleted_at IS NULL', [uid])
+      .then((r) => {
+        const row = r.rows[0] as { token_version: number } | undefined;
+        if (!row || row.token_version !== tv) return next(new Error('unauthorized'));
+        (socket.data as SocketData).userId = uid;
+        (socket.data as SocketData).joinedGames = new Set();
+        // Отключить клиента, когда срок действия токена истечёт.
+        if (payload.exp) {
+          const msLeft = payload.exp * 1000 - Date.now();
+          const timer = setTimeout(() => socket.disconnect(true), Math.max(msLeft, 0));
+          socket.on('disconnect', () => clearTimeout(timer));
+        }
+        next();
+      })
+      .catch(() => next(new Error('unauthorized')));
   });
 
   /* --- Работа с БД --- */

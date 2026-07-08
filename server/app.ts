@@ -18,14 +18,19 @@ import { issueCsrfToken, requireCsrf } from './middleware/csrf';
 import { authRouter } from './routes/auth';
 import { profileRouter } from './routes/profile';
 import { friendsRouter } from './routes/friends';
+import { accountRouter } from './routes/account';
+import { createMailer, type Mailer } from './lib/mailer';
 
 export interface AppDeps {
   pool: pg.Pool;
   env: Env;
+  /** Инъекция почтовика: в тестах подставляется записывающий фейк. */
+  mailer?: Mailer;
 }
 
-export function createApp({ pool, env }: AppDeps): express.Express {
+export function createApp({ pool, env, mailer }: AppDeps): express.Express {
   const app = express();
+  const mail = mailer ?? createMailer(env);
 
   app.use(
     helmet({
@@ -58,9 +63,10 @@ export function createApp({ pool, env }: AppDeps): express.Express {
   app.get('/api/csrf', (req, res) => issueCsrfToken(req, res, env.isProd));
   app.use('/api', requireCsrf);
 
-  app.use('/api/auth', authRouter(pool, env));
+  app.use('/api/auth', authRouter(pool, env, mail));
   app.use('/api', profileRouter(pool, env));
   app.use('/api/friends', friendsRouter(pool, env));
+  app.use('/api/account', accountRouter(pool, env, mail));
 
   // Продакшен: этот же процесс отдаёт собранный фронтенд из dist/.
   if (env.isProd) {

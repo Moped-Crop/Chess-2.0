@@ -5,6 +5,7 @@ import { useT, type StrKey } from '../i18n';
 import { PageShell } from './PageShell';
 import { Avatar } from './MenuPage';
 import { errorKey } from './authShared';
+import { ProfileSecurity } from './ProfileSecurity';
 
 const AVATAR_SIZE = 256;
 const AVATAR_MAX_CHARS = 270_000; // серверный лимит с запасом
@@ -158,6 +159,8 @@ export function ProfilePage() {
           {!stats && <p className="page-loader">{t('loading')}</p>}
         </div>
       </div>
+
+      <ProfileSecurity />
     </PageShell>
   );
 }

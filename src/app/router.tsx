@@ -9,6 +9,10 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { App } from './App';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { VerifyEmailPage } from './pages/VerifyEmailPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import { ConfirmEmailChangePage } from './pages/ConfirmEmailChangePage';
 import { MenuPage } from './pages/MenuPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { FriendsPage } from './pages/FriendsPage';
@@ -56,6 +60,11 @@ export function AppRouter() {
       <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      {/* Публичные ссылки из писем — без RequireAuth. */}
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/confirm-email-change" element={<ConfirmEmailChangePage />} />
       <Route
         path="/menu"
         element={

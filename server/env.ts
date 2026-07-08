@@ -12,7 +12,20 @@ import dotenv from 'dotenv';
 // на хостинге NODE_ENV=production задаётся платформой и имеет приоритет.
 dotenv.config({ path: ['.env', '.env.server'], quiet: true });
 
-const REQUIRED = ['DATABASE_URL', 'JWT_SECRET', 'NODE_ENV'] as const;
+const REQUIRED = [
+  'DATABASE_URL',
+  'JWT_SECRET',
+  'NODE_ENV',
+  // Почта (Gmail SMTP) и шифрование секретов 2FA — сервер не должен стартовать
+  // с частично отсутствующими секретами (иначе письма/2FA молча ломаются).
+  'SMTP_HOST',
+  'SMTP_PORT',
+  'SMTP_USER',
+  'SMTP_PASS',
+  'SMTP_FROM',
+  'APP_URL',
+  'TOTP_ENCRYPTION_KEY',
+] as const;
 
 export interface Env {
   DATABASE_URL: string;
@@ -20,6 +33,14 @@ export interface Env {
   NODE_ENV: string;
   PORT: number;
   isProd: boolean;
+  SMTP_HOST: string;
+  SMTP_PORT: number;
+  SMTP_USER: string;
+  SMTP_PASS: string;
+  SMTP_FROM: string;
+  APP_URL: string;
+  /** 32-байтовый ключ (hex) для AES-256-GCM шифрования секретов TOTP в базе. */
+  TOTP_ENCRYPTION_KEY: string;
 }
 
 export function loadEnv(): Env {
@@ -38,5 +59,12 @@ export function loadEnv(): Env {
     NODE_ENV: process.env.NODE_ENV!,
     PORT: Number(process.env.PORT ?? 3001),
     isProd: process.env.NODE_ENV === 'production',
+    SMTP_HOST: process.env.SMTP_HOST!,
+    SMTP_PORT: Number(process.env.SMTP_PORT),
+    SMTP_USER: process.env.SMTP_USER!,
+    SMTP_PASS: process.env.SMTP_PASS!,
+    SMTP_FROM: process.env.SMTP_FROM!,
+    APP_URL: process.env.APP_URL!,
+    TOTP_ENCRYPTION_KEY: process.env.TOTP_ENCRYPTION_KEY!,
   };
 }
