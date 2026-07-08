@@ -7,10 +7,20 @@
  *    серверный код работает в проде, в интеграционных тестах и в E2E —
  *    боевая база тестами не затрагивается.
  *
- * SSL: включается параметром DATABASE_SSL=1 (некоторые хостинги требуют TLS).
+ * SSL включается, если:
+ *  - DATABASE_SSL=1 (или true), либо
+ *  - в строке подключения есть sslmode=require.
+ * На Railway внутренний адрес (*.railway.internal) работает без TLS — поэтому
+ * по умолчанию SSL выключен и не ломает уже работающую конфигурацию.
  */
 
 import pg from 'pg';
+
+function wantsSsl(databaseUrl: string): boolean {
+  const flag = (process.env.DATABASE_SSL ?? '').toLowerCase();
+  if (flag === '1' || flag === 'true') return true;
+  return /[?&]sslmode=require/i.test(databaseUrl);
+}
 
 export async function createPool(databaseUrl: string): Promise<pg.Pool> {
   if (databaseUrl.startsWith('memory')) {
@@ -22,6 +32,7 @@ export async function createPool(databaseUrl: string): Promise<pg.Pool> {
   return new pg.Pool({
     connectionString: databaseUrl,
     max: 10,
-    ssl: process.env.DATABASE_SSL === '1' ? { rejectUnauthorized: false } : undefined,
+    // Управляемый Postgres обычно с самоподписанным сертификатом.
+    ssl: wantsSsl(databaseUrl) ? { rejectUnauthorized: false } : undefined,
   });
 }
