@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { apiUpdateProfile, apiGetStats, type UserStats } from '../api/profile';
 import { useT, type StrKey } from '../i18n';
@@ -158,6 +159,9 @@ export function ProfilePage() {
           ))}
           {!stats && <p className="page-loader">{t('loading')}</p>}
         </div>
+        <Link className="btn btn-subtle btn-block" to="/history" style={{ marginTop: 12 }}>
+          📜 {t('historyTitle')}
+        </Link>
       </div>
 
       <ProfileSecurity />

@@ -120,10 +120,11 @@ describe('invites', () => {
     await waitFor(a, 'connect');
     await waitFor(b, 'connect');
 
-    const invitePromise = waitFor<{ gameId: number }>(b, 'friend-invite');
-    a.emit('friend-invite', { toUserId: bob });
+    const invitePromise = waitFor<{ gameId: number; timeControlId: string }>(b, 'friend-invite');
+    a.emit('friend-invite', { toUserId: bob, timeControlId: 'none' });
     const invite = await invitePromise;
     expect(invite.gameId).toBeGreaterThan(0);
+    expect(invite.timeControlId).toBe('none');
 
     const aAccepted = waitFor<{ gameId: number }>(a, 'invite-accepted');
     const bAccepted = waitFor<{ gameId: number }>(b, 'invite-accepted');
@@ -132,12 +133,67 @@ describe('invites', () => {
     expect((await bAccepted).gameId).toBe(invite.gameId);
   });
 
+  it('invite with a time control stores it and clocks start on accept', async () => {
+    const alice = await makeUser('alice');
+    const bob = await makeUser('bob');
+    await pool.query(
+      `INSERT INTO friendships (requester_id, addressee_id, status) VALUES ($1, $2, 'accepted')`,
+      [alice, bob],
+    );
+    const a = connectAs(alice);
+    const b = connectAs(bob);
+    await waitFor(a, 'connect');
+    await waitFor(b, 'connect');
+
+    const invitePromise = waitFor<{ gameId: number; timeControlId: string }>(b, 'friend-invite');
+    a.emit('friend-invite', { toUserId: bob, timeControlId: '3+2' });
+    const invite = await invitePromise;
+    expect(invite.timeControlId).toBe('3+2');
+
+    // Партия создана с выбранным контролем, часы ещё не инициализированы.
+    const before = await pool.query(
+      'SELECT time_control_id, white_ms, black_ms, turn_started_at FROM games WHERE id = $1',
+      [invite.gameId],
+    );
+    expect(before.rows[0]).toMatchObject({
+      time_control_id: '3+2',
+      white_ms: null,
+      black_ms: null,
+    });
+
+    // После принятия обе стороны получают полную базу (3 мин), отсчёт пошёл.
+    const accepted = waitFor<{ gameId: number }>(a, 'invite-accepted');
+    b.emit('invite-accepted', { gameId: invite.gameId });
+    await accepted;
+    const after = await pool.query(
+      'SELECT status, white_ms, black_ms, turn_started_at FROM games WHERE id = $1',
+      [invite.gameId],
+    );
+    expect(after.rows[0]).toMatchObject({ status: 'active', white_ms: 180_000, black_ms: 180_000 });
+    expect(after.rows[0].turn_started_at).not.toBeNull();
+  });
+
+  it('invite without a required time control field is ignored', async () => {
+    const alice = await makeUser('alice');
+    const bob = await makeUser('bob');
+    await pool.query(
+      `INSERT INTO friendships (requester_id, addressee_id, status) VALUES ($1, $2, 'accepted')`,
+      [alice, bob],
+    );
+    const a = connectAs(alice);
+    await waitFor(a, 'connect');
+    a.emit('friend-invite', { toUserId: bob }); // старый payload без timeControlId
+    await new Promise((r) => setTimeout(r, 400));
+    const games = await pool.query('SELECT id FROM games');
+    expect(games.rowCount).toBe(0);
+  });
+
   it('does not create a game for non-friends', async () => {
     const alice = await makeUser('alice');
     const bob = await makeUser('bob');
     const a = connectAs(alice);
     await waitFor(a, 'connect');
-    a.emit('friend-invite', { toUserId: bob });
+    a.emit('friend-invite', { toUserId: bob, timeControlId: 'none' });
     await new Promise((r) => setTimeout(r, 400));
     const games = await pool.query('SELECT id FROM games');
     expect(games.rowCount).toBe(0);

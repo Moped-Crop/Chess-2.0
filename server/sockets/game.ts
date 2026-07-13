@@ -14,6 +14,8 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import type { Env } from '../env';
 import type { Color, GameResult, Move } from '../../src/engine/types';
+import { PRESETS, presetById, switchAfterMove } from '../../src/app/clock/clock';
+import { clockFromRow, liveSnapshot, checkFlagged } from '../lib/serverClock';
 import { tryApply, reconstructState } from '../gameEngine';
 import { markOnline, markOffline, socketsOf } from '../presence';
 
@@ -36,7 +38,13 @@ const moveEventSchema = gameIdSchema.extend({
   move: moveSchema,
   index: z.number().int().min(0),
 });
-const inviteSchema = z.object({ toUserId: z.number().int().positive() });
+// Список id пресетов собирается из PRESETS программно, чтобы zod-enum не мог
+// разойтись с clock.ts при добавлении нового контроля времени.
+const timeControlIds = PRESETS.map((p) => p.id) as [string, ...string[]];
+const inviteSchema = z.object({
+  toUserId: z.number().int().positive(),
+  timeControlId: z.enum(timeControlIds),
+});
 
 /* ---------- Вспомогательные типы ---------- */
 
@@ -47,6 +55,11 @@ interface GameRow {
   status: string;
   result: string | null;
   moves: Move[];
+  time_control_id: string | null;
+  white_ms: number | null;
+  black_ms: number | null;
+  turn_started_at: Date | string | null;
+  win_reason: string | null;
 }
 
 interface SocketData {
@@ -54,10 +67,16 @@ interface SocketData {
   joinedGames: Set<number>;
 }
 
+/** Причина завершения партии — персистится в games.win_reason. */
+type EndReason = 'game' | 'resign' | 'abandon' | 'timeout';
+
 const ABANDON_GRACE_MS = 90_000;
 
 /** Таймеры технического поражения при разрыве: `${gameId}:${userId}`. */
 const abandonTimers = new Map<string, NodeJS.Timeout>();
+
+/** Таймеры падения флажка (тайм-аут по часам): ключ — gameId. */
+const flagTimers = new Map<number, NodeJS.Timeout>();
 
 /* ---------- Разбор cookie заголовка (без внешних зависимостей) ---------- */
 
@@ -131,7 +150,9 @@ export function attachGameSockets(io: Server, pool: pg.Pool, env: Env): void {
 
   async function loadGameRow(gameId: number): Promise<GameRow | null> {
     const r = await pool.query(
-      'SELECT id, white_id, black_id, status, result, moves FROM games WHERE id = $1',
+      `SELECT id, white_id, black_id, status, result, moves,
+              time_control_id, white_ms, black_ms, turn_started_at, win_reason
+       FROM games WHERE id = $1`,
       [gameId],
     );
     const row = r.rows[0] as GameRow | undefined;
@@ -171,11 +192,65 @@ export function attachGameSockets(io: Server, pool: pg.Pool, env: Env): void {
     }
   }
 
-  /** Завершить партию: статус, результат, статистика, уведомление комнаты. */
-  async function finishGame(row: GameRow, result: GameResult, reason: string): Promise<void> {
+  /**
+   * Запланировать падение флажка активной стороны: партия завершится
+   * тайм-аутом сама, даже если никто не ходит. Зеркалит abandonTimers.
+   * Перед срабатыванием состояние перечитывается из БД — таймер мог устареть
+   * (успели сходить/сдаться), тогда он просто молча уходит.
+   */
+  function scheduleFlagTimer(row: GameRow, activeColor: Color): void {
+    clearFlagTimer(row.id);
+    const clock = liveSnapshot(row, activeColor);
+    if (!clock) return;
+    const msLeft = activeColor === 'white' ? clock.whiteMs : clock.blackMs;
+    flagTimers.set(
+      row.id,
+      setTimeout(() => {
+        flagTimers.delete(row.id);
+        void (async () => {
+          const fresh = await loadGameRow(row.id);
+          if (!fresh || fresh.status !== 'active') return;
+          const freshActive = reconstructState(fresh.moves).turn;
+          const flagged = checkFlagged(fresh, freshActive);
+          if (!flagged) return; // ход успели сделать чуть раньше — таймер устарел
+          await finishByTimeout(fresh, flagged);
+        })().catch(() => {
+          if (!env.isProd) console.error('flag timer: handler error');
+        });
+      }, Math.max(0, msLeft)),
+    );
+  }
+
+  function clearFlagTimer(gameId: number): void {
+    const t = flagTimers.get(gameId);
+    if (t) {
+      clearTimeout(t);
+      flagTimers.delete(gameId);
+    }
+  }
+
+  /** Завершить партию тайм-аутом: обнулить время просрочившего (ресинк
+   *  завершённой партии покажет честный 0) и записать причину. */
+  async function finishByTimeout(row: GameRow, flagged: Color): Promise<void> {
+    if (flagged === 'white') {
+      await pool.query('UPDATE games SET white_ms = 0 WHERE id = $1', [row.id]);
+    } else {
+      await pool.query('UPDATE games SET black_ms = 0 WHERE id = $1', [row.id]);
+    }
+    const winner: GameResult = flagged === 'white' ? 'black' : 'white';
+    await finishGame(row, winner, 'timeout');
+  }
+
+  /** Завершить партию: статус, результат, причина, статистика, уведомление. */
+  async function finishGame(row: GameRow, result: GameResult, reason: EndReason): Promise<void> {
+    // Флажок этой партии больше не нужен — безусловно и молча (партия могла
+    // закончиться раньше срабатывания: сдача, разрыв, мат).
+    clearFlagTimer(row.id);
     await pool.query(
-      `UPDATE games SET status = 'finished', result = $1, finished_at = NOW() WHERE id = $2 AND status = 'active'`,
-      [result, row.id],
+      `UPDATE games SET status = 'finished', result = $1, win_reason = $2, finished_at = NOW(),
+              turn_started_at = NULL
+       WHERE id = $3 AND status = 'active'`,
+      [result, reason, row.id],
     );
     await updateStats(row.white_id, row.black_id, result);
     io.to(`game:${row.id}`).emit('game-over', { gameId: row.id, result, reason });
@@ -195,6 +270,28 @@ export function attachGameSockets(io: Server, pool: pg.Pool, env: Env): void {
       abandonTimers.delete(key);
     }
   }
+
+  /* --- Восстановление флажков после перезапуска сервера ---
+   * Партии с часами не должны «зависать», если сервер упал ровно перед
+   * падением чьего-то флажка: при старте перечитываем все активные партии с
+   * контролем времени и планируем таймеры заново. Если время уже вышло —
+   * таймер сработает почти сразу (msLeft ≈ 0). Второй, ленивый слой защиты —
+   * проверка в join-game. */
+  void (async () => {
+    const r = await pool.query(
+      `SELECT id, white_id, black_id, status, result, moves,
+              time_control_id, white_ms, black_ms, turn_started_at, win_reason
+       FROM games
+       WHERE status = 'active' AND time_control_id IS NOT NULL AND time_control_id != 'none'`,
+    );
+    for (const raw of r.rows as GameRow[]) {
+      if (typeof raw.moves === 'string') raw.moves = JSON.parse(raw.moves) as Move[];
+      if (raw.turn_started_at == null) continue; // часы ещё не инициализированы
+      scheduleFlagTimer(raw, reconstructState(raw.moves).turn);
+    }
+  })().catch(() => {
+    if (!env.isProd) console.error('flag timer recovery: query error');
+  });
 
   /* --- Подключение --- */
 
@@ -217,7 +314,7 @@ export function attachGameSockets(io: Server, pool: pg.Pool, env: Env): void {
     }
 
     /* Приглашение друга в партию. */
-    on('friend-invite', inviteSchema, async ({ toUserId }) => {
+    on('friend-invite', inviteSchema, async ({ toUserId, timeControlId }) => {
       const friends = await pool.query(
         `SELECT 1 FROM friendships
          WHERE status = 'accepted'
@@ -230,8 +327,9 @@ export function attachGameSockets(io: Server, pool: pg.Pool, env: Env): void {
       const whiteId = meWhite ? userId : toUserId;
       const blackId = meWhite ? toUserId : userId;
       const inserted = await pool.query(
-        `INSERT INTO games (white_id, black_id, status) VALUES ($1, $2, 'waiting') RETURNING id`,
-        [whiteId, blackId],
+        `INSERT INTO games (white_id, black_id, status, time_control_id)
+         VALUES ($1, $2, 'waiting', $3) RETURNING id`,
+        [whiteId, blackId, timeControlId],
       );
       const gameId = inserted.rows[0].id as number;
 
@@ -242,6 +340,7 @@ export function attachGameSockets(io: Server, pool: pg.Pool, env: Env): void {
       for (const sid of socketsOf(toUserId)) {
         io.to(sid).emit('friend-invite', {
           gameId,
+          timeControlId,
           from: { username: me.rows[0].username, displayName: me.rows[0].display_name },
         });
       }
@@ -250,7 +349,28 @@ export function attachGameSockets(io: Server, pool: pg.Pool, env: Env): void {
     on('invite-accepted', gameIdSchema, async ({ gameId }) => {
       const row = await loadGameRow(gameId);
       if (!row || row.status !== 'waiting' || colorOf(row, userId) === null) return;
-      await pool.query(`UPDATE games SET status = 'active' WHERE id = $1`, [gameId]);
+      const preset = row.time_control_id ? presetById(row.time_control_id) : null;
+      if (preset && preset.mode !== 'none') {
+        // Партия с часами: полное время обеим сторонам, отсчёт хода белых —
+        // с момента принятия (в том же UPDATE, что и смена статуса).
+        await pool.query(
+          `UPDATE games SET status = 'active', white_ms = $2, black_ms = $3, turn_started_at = NOW()
+           WHERE id = $1`,
+          [gameId, preset.baseMs, preset.baseMs],
+        );
+        scheduleFlagTimer(
+          {
+            ...row,
+            status: 'active',
+            white_ms: preset.baseMs,
+            black_ms: preset.baseMs,
+            turn_started_at: new Date(),
+          },
+          'white',
+        );
+      } else {
+        await pool.query(`UPDATE games SET status = 'active' WHERE id = $1`, [gameId]);
+      }
       for (const uid of [row.white_id, row.black_id]) {
         for (const sid of socketsOf(uid)) io.to(sid).emit('invite-accepted', { gameId });
       }
@@ -268,7 +388,7 @@ export function attachGameSockets(io: Server, pool: pg.Pool, env: Env): void {
 
     /* Вход в партию (первый заход и реконнект). */
     on('join-game', gameIdSchema, async ({ gameId }) => {
-      const row = await loadGameRow(gameId);
+      let row = await loadGameRow(gameId);
       const myColor = row ? colorOf(row, userId) : null;
       if (!row || myColor === null) {
         socket.emit('game-error', { gameId, error: 'not_found' });
@@ -278,6 +398,17 @@ export function attachGameSockets(io: Server, pool: pg.Pool, env: Env): void {
       data.joinedGames.add(gameId);
       cancelAbandonTimer(gameId, userId);
       socket.to(`game:${gameId}`).emit('opponent-reconnected', { gameId });
+
+      // Ленивая проверка флажка (второй слой защиты после восстановления при
+      // старте): партия фактически просрочена, но ещё числится active —
+      // завершаем тайм-аутом прямо здесь и отвечаем уже финальным состоянием.
+      if (row.status === 'active') {
+        const flagged = checkFlagged(row, reconstructState(row.moves).turn);
+        if (flagged) {
+          await finishByTimeout(row, flagged);
+          row = (await loadGameRow(gameId)) ?? row;
+        }
+      }
 
       const users = await pool.query(
         'SELECT id, username, display_name, avatar_base64 FROM users WHERE id = $1 OR id = $2',
@@ -297,6 +428,9 @@ export function attachGameSockets(io: Server, pool: pg.Pool, env: Env): void {
         result: (row.result ?? 'ongoing') as GameResult,
         moves: row.moves,
         players: { white: pub(row.white_id), black: pub(row.black_id) },
+        reason: (row.win_reason ?? null) as EndReason | null,
+        clock: liveSnapshot(row, reconstructState(row.moves).turn),
+        timeControlId: row.time_control_id,
       });
     });
 
@@ -326,12 +460,50 @@ export function attachGameSockets(io: Server, pool: pg.Pool, env: Env): void {
       }
 
       const nextMoves = [...row.moves, move];
-      // Ход сразу в БД — партия переживает перезапуск сервера.
-      await pool.query('UPDATE games SET moves = $1 WHERE id = $2', [
-        JSON.stringify(nextMoves),
-        gameId,
-      ]);
-      socket.to(`game:${gameId}`).emit('move', { gameId, move, index });
+      // Часы: списать у ходившего, добавить инкремент, передать ход — той же
+      // чистой функцией, что и на клиенте. now — Date.now() (см. serverClock).
+      const now = Date.now();
+      const clockBefore = clockFromRow(row, before.turn);
+      const clockNext = clockBefore
+        ? switchAfterMove(clockBefore, before.turn, now, after.result !== 'ongoing')
+        : null;
+      // Ход сразу в БД — партия переживает перезапуск сервера. Часы — в том же
+      // UPDATE (не отдельным запросом).
+      if (clockNext) {
+        await pool.query(
+          `UPDATE games SET moves = $1, white_ms = $2, black_ms = $3, turn_started_at = $4
+           WHERE id = $5`,
+          [
+            JSON.stringify(nextMoves),
+            Math.round(clockNext.whiteMs),
+            Math.round(clockNext.blackMs),
+            clockNext.activeColor !== null ? new Date(now) : null,
+            gameId,
+          ],
+        );
+      } else {
+        await pool.query('UPDATE games SET moves = $1 WHERE id = $2', [
+          JSON.stringify(nextMoves),
+          gameId,
+        ]);
+      }
+      // Свежий снэпшот часов в исходящем ходе: клиент соперника синхронизируется
+      // на каждом ходу, а не дрейфует локально между редкими ресинками.
+      socket.to(`game:${gameId}`).emit('move', { gameId, move, index, clock: clockNext });
+
+      // Перепланировать флажок под новую активную сторону.
+      if (clockNext && clockNext.activeColor !== null) {
+        scheduleFlagTimer(
+          {
+            ...row,
+            moves: nextMoves,
+            white_ms: Math.round(clockNext.whiteMs),
+            black_ms: Math.round(clockNext.blackMs),
+            turn_started_at: new Date(now),
+          },
+          clockNext.activeColor,
+        );
+      }
 
       if (after.result !== 'ongoing') {
         await finishGame(row, after.result, 'game');

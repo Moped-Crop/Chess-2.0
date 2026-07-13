@@ -18,6 +18,8 @@ import { SecureAccountPage } from './pages/SecureAccountPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { FriendsPage } from './pages/FriendsPage';
 import { OnlineGamePage } from './pages/OnlineGamePage';
+import { GameHistoryPage } from './pages/GameHistoryPage';
+import { GameReplayPage } from './pages/GameReplayPage';
 import { InviteLayer } from './components/InviteLayer';
 import { useAuthStore } from './store/authStore';
 import { useGameStore } from './store/gameStore';
@@ -104,6 +106,22 @@ export function AppRouter() {
         element={
           <RequireAuth>
             <OnlineGamePage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/history"
+        element={
+          <RequireAuth>
+            <GameHistoryPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/history/:gameId"
+        element={
+          <RequireAuth>
+            <GameReplayPage />
           </RequireAuth>
         }
       />

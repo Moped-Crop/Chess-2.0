@@ -50,6 +50,7 @@ export function MenuPage() {
     { to: '/play/local', title: t('menuLocal'), sub: t('menuLocalSub'), icon: '♟' },
     { to: '/friends?invite=1', title: t('menuOnline'), sub: t('menuOnlineSub'), icon: '⚔' },
     { to: '/friends', title: t('menuFriends'), sub: t('menuFriendsSub'), icon: '👥' },
+    { to: '/history', title: t('historyTitle'), sub: t('menuHistorySub'), icon: '📜' },
     { to: '/profile', title: t('menuProfile'), sub: t('menuProfileSub'), icon: '★' },
   ];
 

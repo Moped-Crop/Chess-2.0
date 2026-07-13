@@ -32,6 +32,8 @@ export function GameOverModal() {
     reason = t('reasonResign');
   } else if (mode === 'online' && onlineEndReason === 'abandon') {
     reason = t('reasonAbandon');
+  } else if (mode === 'online' && onlineEndReason === 'timeout') {
+    reason = t('reasonTimeout');
   } else if (game.result === 'draw') {
     reason = t('reasonDraw');
   } else if (clock !== null && (clock.whiteMs <= 0 || clock.blackMs <= 0)) {
