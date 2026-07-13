@@ -15,13 +15,13 @@ import {
   apiChangePassword,
   apiChangeUsername,
   apiChangeEmail,
-  api2faSetup,
-  api2faConfirm,
   api2faDisable,
   apiDeleteAccount,
 } from '../api/account';
 import { useT, useLang, type StrKey } from '../i18n';
 import { errorKey } from './authShared';
+import { PasswordInput } from '../components/PasswordInput';
+import { TwoFactorEnable } from '../components/TwoFactorEnable';
 
 /** Мелкий помощник: строка статуса (успех/ошибка) под формой. */
 function Status({ ok, err }: { ok: StrKey | null; err: StrKey | null }) {
@@ -31,12 +31,36 @@ function Status({ ok, err }: { ok: StrKey | null; err: StrKey | null }) {
   return null;
 }
 
+/**
+ * Поле ввода кода 2FA — показывается ТОЛЬКО если у пользователя включена
+ * двухфакторка. Тогда смена пароля/логина/почты требует подтверждения кодом.
+ */
+function TwoFaField({ code, setCode }: { code: string; setCode: (v: string) => void }) {
+  const t = useT();
+  const enabled = useAuthStore((s) => s.user?.totpEnabled) ?? false;
+  if (!enabled) return null;
+  return (
+    <label className="field">
+      <span className="field-label">{t('login2faCode')}</span>
+      <input
+        className="input"
+        value={code}
+        inputMode="text"
+        autoComplete="one-time-code"
+        onChange={(e) => setCode(e.target.value)}
+        required
+      />
+    </label>
+  );
+}
+
 /* ---------- Смена пароля ---------- */
 
 function ChangePassword() {
   const t = useT();
   const [cur, setCur] = useState('');
   const [next, setNext] = useState('');
+  const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [ok, setOk] = useState<StrKey | null>(null);
   const [err, setErr] = useState<StrKey | null>(null);
@@ -47,10 +71,11 @@ function ChangePassword() {
     setOk(null);
     setErr(null);
     try {
-      await apiChangePassword(cur, next);
+      await apiChangePassword(cur, next, code || undefined);
       setOk('savedGeneric');
       setCur('');
       setNext('');
+      setCode('');
     } catch (ex) {
       setErr(errorKey(ex));
     } finally {
@@ -63,12 +88,13 @@ function ChangePassword() {
       <h4 className="sec-heading">{t('secChangePassword')}</h4>
       <label className="field">
         <span className="field-label">{t('secCurrentPassword')}</span>
-        <input className="input" type="password" value={cur} autoComplete="current-password" onChange={(e) => setCur(e.target.value)} required />
+        <PasswordInput value={cur} autoComplete="current-password" onChange={(e) => setCur(e.target.value)} required />
       </label>
       <label className="field">
         <span className="field-label">{t('secNewPassword')}</span>
-        <input className="input" type="password" value={next} autoComplete="new-password" minLength={8} maxLength={128} onChange={(e) => setNext(e.target.value)} required />
+        <PasswordInput value={next} autoComplete="new-password" minLength={8} maxLength={128} onChange={(e) => setNext(e.target.value)} required />
       </label>
+      <TwoFaField code={code} setCode={setCode} />
       <Status ok={ok} err={err} />
       <button className="btn btn-primary" type="submit" disabled={busy}>
         {t('secChangePasswordBtn')}
@@ -84,6 +110,7 @@ function ChangeUsername() {
   const setUser = useAuthStore((s) => s.setUser);
   const [cur, setCur] = useState('');
   const [name, setName] = useState('');
+  const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [ok, setOk] = useState<StrKey | null>(null);
   const [err, setErr] = useState<StrKey | null>(null);
@@ -94,11 +121,12 @@ function ChangeUsername() {
     setOk(null);
     setErr(null);
     try {
-      const { user } = await apiChangeUsername(cur, name.trim());
+      const { user } = await apiChangeUsername(cur, name.trim(), code || undefined);
       setUser(user);
       setOk('savedGeneric');
       setCur('');
       setName('');
+      setCode('');
     } catch (ex) {
       setErr(errorKey(ex));
     } finally {
@@ -111,12 +139,13 @@ function ChangeUsername() {
       <h4 className="sec-heading">{t('secChangeUsername')}</h4>
       <label className="field">
         <span className="field-label">{t('secCurrentPassword')}</span>
-        <input className="input" type="password" value={cur} autoComplete="current-password" onChange={(e) => setCur(e.target.value)} required />
+        <PasswordInput value={cur} autoComplete="current-password" onChange={(e) => setCur(e.target.value)} required />
       </label>
       <label className="field">
         <span className="field-label">{t('secNewUsername')}</span>
         <input className="input" value={name} minLength={3} maxLength={32} pattern="[A-Za-z0-9_]+" onChange={(e) => setName(e.target.value)} required />
       </label>
+      <TwoFaField code={code} setCode={setCode} />
       <Status ok={ok} err={err} />
       <button className="btn btn-primary" type="submit" disabled={busy}>
         {t('secChangeUsernameBtn')}
@@ -132,6 +161,7 @@ function ChangeEmail() {
   const lang = useLang();
   const [cur, setCur] = useState('');
   const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
   const [pending, setPending] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<StrKey | null>(null);
@@ -141,10 +171,11 @@ function ChangeEmail() {
     setBusy(true);
     setErr(null);
     try {
-      const { pendingEmail } = await apiChangeEmail(cur, email.trim(), lang);
+      const { pendingEmail } = await apiChangeEmail(cur, email.trim(), lang, code || undefined);
       setPending(pendingEmail);
       setCur('');
       setEmail('');
+      setCode('');
     } catch (ex) {
       setErr(errorKey(ex));
     } finally {
@@ -162,12 +193,13 @@ function ChangeEmail() {
       )}
       <label className="field">
         <span className="field-label">{t('secCurrentPassword')}</span>
-        <input className="input" type="password" value={cur} autoComplete="current-password" onChange={(e) => setCur(e.target.value)} required />
+        <PasswordInput value={cur} autoComplete="current-password" onChange={(e) => setCur(e.target.value)} required />
       </label>
       <label className="field">
         <span className="field-label">{t('secNewEmail')}</span>
         <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
       </label>
+      <TwoFaField code={code} setCode={setCode} />
       <Status ok={null} err={err} />
       <button className="btn btn-primary" type="submit" disabled={busy}>
         {t('secChangeEmailBtn')}
@@ -178,27 +210,11 @@ function ChangeEmail() {
 
 /* ---------- Двухфакторная аутентификация ---------- */
 
-function download(filename: string, text: string) {
-  const blob = new Blob([text], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
 function TwoFactor() {
   const t = useT();
-  const user = useAuthStore((s) => s.user);
+  const enabled = useAuthStore((s) => s.user?.totpEnabled) ?? false;
   const setUser = useAuthStore((s) => s.setUser);
-  const enabled = user?.totpEnabled ?? false;
 
-  // Включение.
-  const [setup, setSetup] = useState<{ qr: string; key: string } | null>(null);
-  const [code, setCode] = useState('');
-  const [backup, setBackup] = useState<string[] | null>(null);
-  // Отключение.
   const [disCur, setDisCur] = useState('');
   const [disCode, setDisCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -210,36 +226,6 @@ function TwoFactor() {
       setUser(fresh);
     } catch {
       /* не критично */
-    }
-  }
-
-  async function startSetup() {
-    setErr(null);
-    setBusy(true);
-    try {
-      const { qrCodeDataUrl, manualEntryKey } = await api2faSetup();
-      setSetup({ qr: qrCodeDataUrl, key: manualEntryKey });
-    } catch (ex) {
-      setErr(errorKey(ex));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function confirm(e: React.FormEvent) {
-    e.preventDefault();
-    setErr(null);
-    setBusy(true);
-    try {
-      const { backupCodes } = await api2faConfirm(code.trim());
-      setBackup(backupCodes);
-      setSetup(null);
-      setCode('');
-      await refreshUser();
-    } catch (ex) {
-      setErr(errorKey(ex));
-    } finally {
-      setBusy(false);
     }
   }
 
@@ -265,56 +251,14 @@ function TwoFactor() {
         {t('sec2faTitle')} — <span className={enabled ? 'badge-on' : 'badge-off'}>{enabled ? t('sec2faOn') : t('sec2faOff')}</span>
       </h4>
 
-      {/* Показ резервных кодов один раз после включения. */}
-      {backup && (
-        <div className="backup-codes">
-          <p className="sec-heading">{t('sec2faBackupTitle')}</p>
-          <p className="muted">{t('sec2faBackupWarning')}</p>
-          <ul className="backup-list">
-            {backup.map((c) => (
-              <li key={c}>{c}</li>
-            ))}
-          </ul>
-          <div className="btn-row">
-            <button className="btn btn-subtle" onClick={() => download('chess2-backup-codes.txt', backup.join('\n'))}>
-              {t('sec2faBackupDownload')}
-            </button>
-            <button className="btn btn-primary" onClick={() => setBackup(null)}>
-              {t('done')}
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Включение — переиспользуемый поток; по завершении обновляем стор. */}
+      {!enabled && <TwoFactorEnable onDone={() => void refreshUser()} />}
 
-      {!backup && !enabled && !setup && (
-        <button className="btn btn-primary" onClick={() => void startSetup()} disabled={busy}>
-          {t('sec2faEnable')}
-        </button>
-      )}
-
-      {!backup && !enabled && setup && (
-        <form onSubmit={confirm}>
-          <p className="muted">{t('sec2faScan')}</p>
-          <img className="totp-qr" src={setup.qr} alt="QR" />
-          <p className="muted">
-            {t('sec2faManual')} <code>{setup.key}</code>
-          </p>
-          <label className="field">
-            <span className="field-label">{t('sec2faEnterCode')}</span>
-            <input className="input" value={code} inputMode="numeric" autoComplete="one-time-code" onChange={(e) => setCode(e.target.value)} required />
-          </label>
-          <Status ok={null} err={err} />
-          <button className="btn btn-primary" type="submit" disabled={busy}>
-            {t('sec2faConfirmBtn')}
-          </button>
-        </form>
-      )}
-
-      {!backup && enabled && (
+      {enabled && (
         <form onSubmit={disable}>
           <label className="field">
             <span className="field-label">{t('secCurrentPassword')}</span>
-            <input className="input" type="password" value={disCur} autoComplete="current-password" onChange={(e) => setDisCur(e.target.value)} required />
+            <PasswordInput value={disCur} autoComplete="current-password" onChange={(e) => setDisCur(e.target.value)} required />
           </label>
           <label className="field">
             <span className="field-label">{t('sec2faDisableCode')}</span>
@@ -326,8 +270,6 @@ function TwoFactor() {
           </button>
         </form>
       )}
-
-      {err && !setup && !enabled && !backup && <p className="form-error">{t(err)}</p>}
     </div>
   );
 }
@@ -411,7 +353,7 @@ function DeleteAccount() {
                 <p className="muted">{t('delPasswordPrompt')}</p>
                 <label className="field">
                   <span className="field-label">{t('secCurrentPassword')}</span>
-                  <input className="input" type="password" value={password} autoFocus autoComplete="current-password" onChange={(e) => setPassword(e.target.value)} required />
+                  <PasswordInput value={password} autoFocus autoComplete="current-password" onChange={(e) => setPassword(e.target.value)} required />
                 </label>
                 {err && <p className="form-error">{t(err)}</p>}
                 <div className="btn-row">

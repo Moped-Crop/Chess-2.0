@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/authStore';
 import { useT, useLang, type StrKey } from '../i18n';
 import { AuthShell, errorKey } from './authShared';
 import { CheckEmailNotice } from '../components/CheckEmailNotice';
+import { PasswordInput } from '../components/PasswordInput';
 
 /** Страница регистрации: логин, email, пароль, отображаемое имя. */
 export function RegisterPage() {
@@ -14,6 +15,7 @@ export function RegisterPage() {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [password2, setPassword2] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState<StrKey | null>(null);
   const [busy, setBusy] = useState(false);
@@ -22,6 +24,11 @@ export function RegisterPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    // Пароль вводится дважды — проверяем совпадение до отправки.
+    if (password !== password2) {
+      setError('errPasswordMismatch');
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -80,11 +87,20 @@ export function RegisterPage() {
         </label>
         <label className="field">
           <span className="field-label">{t('authPassword')}</span>
-          <input
-            className="input"
-            type="password"
+          <PasswordInput
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
+            minLength={8}
+            maxLength={128}
+            required
+          />
+        </label>
+        <label className="field">
+          <span className="field-label">{t('authPasswordConfirm')}</span>
+          <PasswordInput
+            value={password2}
+            onChange={(e) => setPassword2(e.target.value)}
             autoComplete="new-password"
             minLength={8}
             maxLength={128}

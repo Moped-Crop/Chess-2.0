@@ -2147,3 +2147,62 @@ button {
 .danger-zone {
   border-top: 1px solid rgba(239, 71, 87, 0.4);
 }
+
+/* --- Поле пароля с «показать/скрыть» --- */
+.password-input {
+  position: relative;
+  display: block;
+}
+.password-input .input {
+  width: 100%;
+  padding-right: 42px;
+}
+.password-toggle {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  border-radius: var(--radius-xs);
+}
+.password-toggle:hover {
+  color: var(--text);
+}
+
+/* --- Переключатель языка на экранах входа --- */
+.auth-lang {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.auth-lang button {
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-dim);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+  font-weight: 650;
+  cursor: pointer;
+}
+.auth-lang button.active {
+  border-color: var(--accent-strong);
+  color: var(--accent-strong);
+}
+
+/* --- Экран-предложение включить 2FA после регистрации --- */
+.secure-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}

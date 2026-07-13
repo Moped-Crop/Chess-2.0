@@ -34,7 +34,8 @@ export function VerifyEmailPage() {
     apiVerifyEmail(token)
       .then(({ user }) => {
         completeLogin(user);
-        navigate('/menu', { replace: true });
+        // Сразу после регистрации предлагаем включить 2FA.
+        navigate('/secure-account', { replace: true });
       })
       .catch((e) => setError(errorKey(e)));
   }, [params, completeLogin, navigate]);

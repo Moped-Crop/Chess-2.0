@@ -337,3 +337,62 @@ describe('account deletion', () => {
     expect(blocked.body.error).toBe('too_many_attempts');
   });
 });
+
+describe('2FA gate on sensitive changes', () => {
+  it('requires a 2FA code to change password when 2FA is on', async () => {
+    const u = await registerUser(ctx, 'alice');
+    const { secret } = await enable2fa(u);
+
+    // Верный пароль, но без 2FA-кода → отказ.
+    const noCode = await u.agent
+      .post('/api/account/change-password')
+      .set('X-CSRF-Token', u.csrf)
+      .send({ currentPassword: 'password-123', newPassword: 'new-password-9' });
+    expect(noCode.status).toBe(401);
+    expect(noCode.body.error).toBe('totp_invalid');
+
+    // Неверный код → отказ.
+    const badCode = await u.agent
+      .post('/api/account/change-password')
+      .set('X-CSRF-Token', u.csrf)
+      .send({ currentPassword: 'password-123', newPassword: 'new-password-9', code: '000000' });
+    expect(badCode.status).toBe(401);
+
+    // Верный TOTP-код → успех.
+    const code = await generate({ secret });
+    const ok = await u.agent
+      .post('/api/account/change-password')
+      .set('X-CSRF-Token', u.csrf)
+      .send({ currentPassword: 'password-123', newPassword: 'new-password-9', code });
+    expect(ok.status).toBe(200);
+  });
+
+  it('requires a 2FA code to change username when 2FA is on', async () => {
+    const u = await registerUser(ctx, 'alice');
+    const { secret } = await enable2fa(u);
+
+    const noCode = await u.agent
+      .post('/api/account/change-username')
+      .set('X-CSRF-Token', u.csrf)
+      .send({ currentPassword: 'password-123', newUsername: 'alice_new' });
+    expect(noCode.status).toBe(401);
+    expect(noCode.body.error).toBe('totp_invalid');
+
+    const code = await generate({ secret });
+    const ok = await u.agent
+      .post('/api/account/change-username')
+      .set('X-CSRF-Token', u.csrf)
+      .send({ currentPassword: 'password-123', newUsername: 'alice_new', code });
+    expect(ok.status).toBe(200);
+    expect(ok.body.user.username).toBe('alice_new');
+  });
+
+  it('does NOT require a code when 2FA is off', async () => {
+    const u = await registerUser(ctx, 'alice');
+    const ok = await u.agent
+      .post('/api/account/change-password')
+      .set('X-CSRF-Token', u.csrf)
+      .send({ currentPassword: 'password-123', newPassword: 'new-password-9' });
+    expect(ok.status).toBe(200);
+  });
+});
