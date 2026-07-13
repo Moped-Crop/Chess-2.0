@@ -192,11 +192,12 @@ app/      store/, components/, persistence/, i18n/, App.tsx, main.tsx
   Особенности pg-mem: UNIQUE-индекс не терпит `NULL` (поэтому email при
   удалении — placeholder, а не NULL); конкатенация `text || integer` требует
   явного `::text`.
-- **Почта — через HTTP-API Brevo, НЕ SMTP.** Railway режет исходящие
+- **Почта — через HTTP-API Resend, НЕ SMTP.** Railway режет исходящие
   SMTP-порты (25/465/587) на всех тарифах кроме Pro, поэтому `mailer.ts` шлёт
-  письма POST-запросом на `api.brevo.com` (порт 443). Домен не нужен —
-  подтверждается один адрес-отправитель в панели Brevo.
-- **Новые env-переменные** (все в `REQUIRED`): `BREVO_API_KEY`, `MAIL_FROM`,
+  письма POST-запросом на `api.resend.com/emails` (порт 443). Отправитель —
+  адрес на подтверждённом в Resend домене (`chess2-ascent.online`). Домен на
+  Cloudflare (NS), сайт — кастомный домен Railway через Cloudflare-проксирование.
+- **Новые env-переменные** (все в `REQUIRED`): `RESEND_API_KEY`, `MAIL_FROM`,
   `APP_URL`, `TOTP_ENCRYPTION_KEY` (32 байта hex, обязан совпадать локально и на
   Railway). На Railway также нужен `NPM_CONFIG_PRODUCTION=false` (иначе с
   `NODE_ENV=production` не ставятся devDependencies и сборка падает на `tsc`).

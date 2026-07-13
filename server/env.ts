@@ -16,11 +16,11 @@ const REQUIRED = [
   'DATABASE_URL',
   'JWT_SECRET',
   'NODE_ENV',
-  // Почта (Brevo HTTP-API) и шифрование секретов 2FA — сервер не должен
+  // Почта (Resend HTTP-API) и шифрование секретов 2FA — сервер не должен
   // стартовать с частично отсутствующими секретами (иначе письма/2FA молча
   // ломаются). Через SMTP письма не шлём: Railway режет SMTP-порты, поэтому
-  // используется HTTP-API Brevo (порт 443).
-  'BREVO_API_KEY',
+  // используется HTTP-API Resend (порт 443).
+  'RESEND_API_KEY',
   'MAIL_FROM',
   'APP_URL',
   'TOTP_ENCRYPTION_KEY',
@@ -32,8 +32,8 @@ export interface Env {
   NODE_ENV: string;
   PORT: number;
   isProd: boolean;
-  /** API-ключ Brevo (транзакционная почта через HTTP, не SMTP). */
-  BREVO_API_KEY: string;
+  /** API-ключ Resend (транзакционная почта через HTTP, не SMTP). */
+  RESEND_API_KEY: string;
   /** Отправитель писем, формат `"Имя" <email@x>`. */
   MAIL_FROM: string;
   APP_URL: string;
@@ -57,7 +57,7 @@ export function loadEnv(): Env {
     NODE_ENV: process.env.NODE_ENV!,
     PORT: Number(process.env.PORT ?? 3001),
     isProd: process.env.NODE_ENV === 'production',
-    BREVO_API_KEY: process.env.BREVO_API_KEY!,
+    RESEND_API_KEY: process.env.RESEND_API_KEY!,
     MAIL_FROM: process.env.MAIL_FROM!,
     APP_URL: process.env.APP_URL!,
     TOTP_ENCRYPTION_KEY: process.env.TOTP_ENCRYPTION_KEY!,

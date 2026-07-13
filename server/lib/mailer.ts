@@ -1,10 +1,10 @@
 /**
- * Отправка писем через транзакционный HTTP-API Brevo (порт 443).
+ * Отправка писем через транзакционный HTTP-API Resend (порт 443).
  *
  * Почему не SMTP: Railway режет исходящие SMTP-порты (25/465/587) на всех
- * тарифах кроме Pro, поэтому Gmail SMTP оттуда недоступен. Brevo шлёт письма
- * обычным HTTPS-запросом, который не блокируется. Домен не нужен — достаточно
- * подтвердить один адрес-отправитель в панели Brevo.
+ * тарифах кроме Pro, поэтому Gmail SMTP оттуда недоступен. Resend шлёт письма
+ * обычным HTTPS-запросом, который не блокируется. Отправитель — адрес на
+ * подтверждённом в Resend домене (напр. noreply@chess2-ascent.online).
  *
  * sendMail не бросает исключение наружу — логирует причину и возвращает признак
  * успеха, чтобы вызывающий код (регистрация, восстановление) сам решал, как
@@ -15,15 +15,8 @@
 
 import type { Env } from '../env';
 
-const BREVO_ENDPOINT = 'https://api.brevo.com/v3/smtp/email';
+const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 const SEND_TIMEOUT_MS = 15_000;
-
-/** Разобрать `"Имя" <email@x>` в объект отправителя Brevo. */
-function parseFrom(raw: string): { name: string; email: string } {
-  const m = raw.match(/^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/);
-  if (m) return { name: m[1].trim() || 'Chess 2 · ASCENT', email: m[2].trim() };
-  return { name: 'Chess 2 · ASCENT', email: raw.trim() };
-}
 
 export type Lang = 'ru' | 'en';
 
@@ -140,8 +133,6 @@ function para(text: string, color = '#c7ccda'): string {
 }
 
 export function createMailer(env: Env): Mailer {
-  const sender = parseFrom(env.MAIL_FROM);
-
   async function sendMail(msg: {
     to: string;
     subject: string;
@@ -149,24 +140,24 @@ export function createMailer(env: Env): Mailer {
     text: string;
   }): Promise<boolean> {
     try {
-      const res = await fetch(BREVO_ENDPOINT, {
+      const res = await fetch(RESEND_ENDPOINT, {
         method: 'POST',
         headers: {
-          'api-key': env.BREVO_API_KEY,
+          authorization: `Bearer ${env.RESEND_API_KEY}`,
           'content-type': 'application/json',
-          accept: 'application/json',
         },
         body: JSON.stringify({
-          sender,
-          to: [{ email: msg.to }],
+          // Resend принимает отправителя строкой `"Имя" <email@домен>`.
+          from: env.MAIL_FROM,
+          to: [msg.to],
           subject: msg.subject,
-          htmlContent: msg.html,
-          textContent: msg.text,
+          html: msg.html,
+          text: msg.text,
         }),
         signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
       });
       if (!res.ok) {
-        // Тело ответа Brevo (код + сообщение об ошибке) — не секрет, логируем.
+        // Тело ответа Resend (код + сообщение об ошибке) — не секрет, логируем.
         const body = await res.text().catch(() => '');
         console.error(`sendMail error → ${msg.to}: HTTP ${res.status} ${body.slice(0, 300)}`);
         return false;
