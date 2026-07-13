@@ -19,7 +19,7 @@ export const TEST_ENV: Env = {
   NODE_ENV: 'test',
   PORT: 0,
   isProd: false,
-  BREVO_API_KEY: 'test-brevo-key',
+  RESEND_API_KEY: 'test-resend-key',
   MAIL_FROM: '"Chess 2 · ASCENT" <test@example.test>',
   APP_URL: 'http://localhost:5173',
   // 32 байта в hex — валидный ключ для AES-256-GCM в тестах.
