@@ -9,7 +9,8 @@ import {
 } from '../api/friends';
 import { ApiError } from '../api/client';
 import { connectSocket } from '../net/socket';
-import { useT, type StrKey } from '../i18n';
+import { PRESETS } from '../clock/clock';
+import { useT, useLang, type StrKey } from '../i18n';
 import { PageShell } from './PageShell';
 import { Avatar } from './MenuPage';
 
@@ -30,11 +31,14 @@ function friendErrorKey(e: unknown): StrKey {
 /** Друзья: заявка по логину, входящие/исходящие, список со статусами. */
 export function FriendsPage() {
   const t = useT();
+  const lang = useLang();
   const [list, setList] = useState<FriendsList | null>(null);
   const [username, setUsername] = useState('');
   const [error, setError] = useState<StrKey | null>(null);
   const [notice, setNotice] = useState(false);
   const [invitedId, setInvitedId] = useState<number | null>(null);
+  /** У кого сейчас открыт выбор контроля времени (шаг перед приглашением). */
+  const [pickingId, setPickingId] = useState<number | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -74,6 +78,14 @@ export function FriendsPage() {
     } catch (err) {
       setError(friendErrorKey(err));
     }
+  }
+
+  /** Второй шаг приглашения: контроль времени выбран — отправляем. */
+  function sendInvite(toUserId: number, timeControlId: string) {
+    connectSocket().emit('friend-invite', { toUserId, timeControlId });
+    setPickingId(null);
+    setInvitedId(toUserId);
+    window.setTimeout(() => setInvitedId(null), 5000);
   }
 
   return (
@@ -133,32 +145,46 @@ export function FriendsPage() {
         {list && list.friends.length === 0 && <p className="friends-empty">{t('noFriendsYet')}</p>}
         {!list && <p className="page-loader">{t('loading')}</p>}
         {list?.friends.map((f) => (
-          <div key={f.friendshipId} className="friend-row">
-            <span className={`online-dot ${f.online ? 'on' : ''}`} title={f.online ? t('statusOnline') : t('statusOffline')} />
-            <Avatar avatarBase64={f.user.avatarBase64} name={f.user.displayName} size={36} />
-            <span className="friend-name">
-              {f.user.displayName} <span className="friend-username">@{f.user.username}</span>
-            </span>
-            <div className="btn-row friend-actions">
-              <button
-                className="btn btn-subtle"
-                disabled={invitedId === f.user.id}
-                title={t('menuOnlineSub')}
-                onClick={() => {
-                  connectSocket().emit('friend-invite', { toUserId: f.user.id });
-                  setInvitedId(f.user.id);
-                  window.setTimeout(() => setInvitedId(null), 5000);
-                }}
-              >
-                ⚔ {invitedId === f.user.id ? t('inviteSentNotice') : t('inviteToGame')}
-              </button>
-              <button
-                className="btn btn-ghost"
-                onClick={() => void act(() => apiFriendRemove(f.friendshipId))}
-              >
-                {t('removeBtn')}
-              </button>
+          <div key={f.friendshipId} className="friend-wrap">
+            <div className="friend-row">
+              <span className={`online-dot ${f.online ? 'on' : ''}`} title={f.online ? t('statusOnline') : t('statusOffline')} />
+              <Avatar avatarBase64={f.user.avatarBase64} name={f.user.displayName} size={36} />
+              <span className="friend-name">
+                {f.user.displayName} <span className="friend-username">@{f.user.username}</span>
+              </span>
+              <div className="btn-row friend-actions">
+                <button
+                  className="btn btn-subtle"
+                  disabled={invitedId === f.user.id}
+                  title={t('menuOnlineSub')}
+                  onClick={() => setPickingId(pickingId === f.user.id ? null : f.user.id)}
+                >
+                  ⚔ {invitedId === f.user.id ? t('inviteSentNotice') : t('inviteToGame')}
+                </button>
+                <button
+                  className="btn btn-ghost"
+                  onClick={() => void act(() => apiFriendRemove(f.friendshipId))}
+                >
+                  {t('removeBtn')}
+                </button>
+              </div>
             </div>
+            {pickingId === f.user.id && (
+              <div className="invite-presets">
+                <span className="invite-presets-label">{t('timeControl')}</span>
+                <div className="invite-presets-btns">
+                  {PRESETS.map((p) => (
+                    <button
+                      key={p.id}
+                      className="btn btn-subtle"
+                      onClick={() => sendInvite(f.user.id, p.id)}
+                    >
+                      {lang === 'en' ? p.labelEn : p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>

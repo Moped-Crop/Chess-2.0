@@ -4,11 +4,14 @@ import { useAuthStore } from '../store/authStore';
 import { useGameStore } from '../store/gameStore';
 import { connectSocket, disconnectSocket } from '../net/socket';
 import { checkSound } from '../sound';
-import { useT } from '../i18n';
+import { presetById } from '../clock/clock';
+import { useT, useLang } from '../i18n';
 
 interface Invite {
   gameId: number;
   from: { username: string; displayName: string };
+  /** id пресета контроля времени; отсутствует у приглашений старого сервера. */
+  timeControlId?: string;
 }
 
 /**
@@ -18,6 +21,7 @@ interface Invite {
  */
 export function InviteLayer() {
   const t = useT();
+  const lang = useLang();
   const navigate = useNavigate();
   const status = useAuthStore((s) => s.status);
   const [invite, setInvite] = useState<Invite | null>(null);
@@ -61,6 +65,13 @@ export function InviteLayer() {
         <div className="invite-toast card">
           <span className="invite-text">
             <b>{invite.from.displayName}</b> {t('inviteIncoming')}
+            {invite.timeControlId && (
+              <span className="invite-tc">
+                {lang === 'en'
+                  ? presetById(invite.timeControlId).labelEn
+                  : presetById(invite.timeControlId).label}
+              </span>
+            )}
           </span>
           <div className="btn-row">
             <button

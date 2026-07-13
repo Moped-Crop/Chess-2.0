@@ -42,7 +42,10 @@ import { emitMove } from '../net/socket';
 
 export type Orientation = 'white' | 'black' | 'auto';
 export type UiTheme = 'dark' | 'light';
-export type GameMode = 'local' | 'online';
+export type GameMode = 'local' | 'online' | 'replay';
+
+/** Причина завершения онлайн-партии ('game' — мат/пат/ничья по правилам). */
+export type OnlineEndReason = 'game' | 'resign' | 'abandon' | 'timeout';
 
 /** Противник в онлайн-партии (для PlayerBar). */
 export interface OpponentInfo {
@@ -98,15 +101,14 @@ interface GameStore {
   onlineGameId: number | null;
   myColor: Color | null;
   opponent: OpponentInfo | null;
-  /** Причина завершения онлайн-партии ('game' — мат/ничья по правилам). */
-  onlineEndReason: 'game' | 'resign' | 'abandon' | null;
+  onlineEndReason: OnlineEndReason | null;
 
   /** Применить ПОДТВЕРЖДЁННЫЙ ход (общий путь локального и онлайн-режима). */
   applyConfirmedMove: (move: Move) => void;
   /** Оптимистично применить свой ход и отправить на сервер. */
   submitOnlineMove: (move: Move) => void;
-  /** Ход соперника, пришедший по сокету. */
-  applyRemoteMove: (move: Move) => void;
+  /** Ход соперника по сокету; clock — свежий серверный снэпшот часов. */
+  applyRemoteMove: (move: Move, clock?: ClockState | null) => void;
   /** Загрузка/ресинхронизация онлайн-партии: проигрываем ходы с начала. */
   startOnlineGame: (payload: {
     gameId: number;
@@ -114,11 +116,24 @@ interface GameStore {
     opponent: OpponentInfo;
     moves: Move[];
     result: GameResult;
+    reason: OnlineEndReason | null;
+    clock: ClockState | null;
   }) => void;
-  /** Партия завершена сервером (мат/сдача/разрыв соединения). */
-  finishOnlineGame: (result: GameResult, reason: 'game' | 'resign' | 'abandon') => void;
+  /** Партия завершена сервером (мат/сдача/разрыв/тайм-аут). */
+  finishOnlineGame: (result: GameResult, reason: OnlineEndReason) => void;
   /** Выйти из онлайн-режима и вернуть локальный автосейв. */
   leaveOnlineGame: () => void;
+
+  // --- Просмотр истории (mode='replay': доска не принимает ходов) ---
+  /** Показать кадр повтора: позиция по индексу, полные лог/взятия. */
+  loadReplayFrame: (payload: {
+    game: GameState;
+    moveLog: MoveEntry[];
+    captures: (Piece | null)[];
+    lastMove: { from: Square; to: Square } | null;
+  }) => void;
+  /** Выйти из повтора и вернуть локальный автосейв. */
+  exitReplay: () => void;
 
   newGame: () => void;
   setPreset: (id: string) => void;
@@ -269,16 +284,27 @@ export const useGameStore = create<GameStore>((set, get) => {
       emitMove(onlineGameId, move, index);
     },
 
-    applyRemoteMove: (move) => {
+    applyRemoteMove: (move, clock) => {
       const { game, mode } = get();
       if (mode !== 'online' || game.result !== 'ongoing') return;
       // Свой оптимистичный ход не приходит эхом (сервер шлёт остальным),
       // но на всякий случай не применяем ход «за себя».
       if (game.turn === get().myColor) return;
       commit(move);
+      // Серверный снэпшот часов авторитетнее локального пересчёта в commit:
+      // подменяем сразу после применения хода (оба set — в одном тике React,
+      // промежуточное состояние не отрисовывается). lastTickTs сервера — из
+      // Date.now(), локальный тикер живёт на performance.now() — пересчитываем.
+      if (clock !== undefined) {
+        set({
+          clock: clock
+            ? { ...clock, lastTickTs: clock.activeColor !== null ? performance.now() : null }
+            : null,
+        });
+      }
     },
 
-    startOnlineGame: ({ gameId, myColor, opponent, moves, result }) => {
+    startOnlineGame: ({ gameId, myColor, opponent, moves, result, reason, clock }) => {
       // Восстановление с нуля: та же логика, что на сервере, — движок один.
       let g = createInitialState();
       const log: MoveEntry[] = [];
@@ -304,25 +330,35 @@ export const useGameStore = create<GameStore>((set, get) => {
         pending: null,
         lastMove: last ? { from: last.from, to: last.to } : null,
         lastAction: null,
-        clock: null,
+        // Серверный снэпшот: whiteMs/blackMs как есть, но точка отсчёта
+        // пересчитывается на performance.now() — источник времени локального
+        // тикера (сервер прислал ms в терминах Date.now()).
+        clock: clock
+          ? { ...clock, lastTickTs: clock.activeColor !== null ? performance.now() : null }
+          : null,
         moveLog: log,
         captures: caps,
         mode: 'online',
         onlineGameId: gameId,
         myColor,
         opponent,
-        onlineEndReason: null,
+        onlineEndReason: reason ?? null,
         // Своя сторона всегда снизу; настройка ориентации не перезаписывается.
         orientation: myColor,
       });
     },
 
     finishOnlineGame: (result, reason) => {
-      const { game, muted } = get();
+      const { game, muted, clock } = get();
       if (result === 'ongoing') return;
+      // Часы останавливаются при любом завершении — иначе локальный тикер
+      // продолжит впустую крутиться до следующего ре-рендера.
+      const stoppedClock: ClockState | null = clock
+        ? { ...clock, activeColor: null, lastTickTs: null }
+        : null;
       if (game.result !== 'ongoing') {
         // Результат уже применён оптимистичным ходом — дописываем причину.
-        set({ onlineEndReason: reason });
+        set({ onlineEndReason: reason, clock: stoppedClock });
         return;
       }
       if (!muted) {
@@ -335,6 +371,54 @@ export const useGameStore = create<GameStore>((set, get) => {
         pending: null,
         selected: null,
         onlineEndReason: reason,
+        clock: stoppedClock,
+      });
+    },
+
+    loadReplayFrame: ({ game, moveLog, captures, lastMove }) => {
+      // В отличие от loadMatch (загрузка локального сейва как живой партии),
+      // кадр повтора НЕ пишется в автосейв — это только просмотр.
+      set({
+        game,
+        past: [],
+        selected: null,
+        legal: [],
+        pending: null,
+        lastMove,
+        lastAction: null,
+        clock: null,
+        moveLog,
+        captures,
+        mode: 'replay',
+        onlineGameId: null,
+        myColor: null,
+        opponent: null,
+        onlineEndReason: null,
+      });
+    },
+
+    exitReplay: () => {
+      if (get().mode !== 'replay') return;
+      // Возвращаем локальный автосейв — тем же способом, что leaveOnlineGame.
+      const saved = loadGame();
+      const g = saved?.game ?? createInitialState();
+      set({
+        game: g,
+        past: [],
+        selected: null,
+        legal: g.result === 'ongoing' ? legalMoves(g) : [],
+        pending: null,
+        lastMove: null,
+        lastAction: null,
+        clock: null,
+        moveLog: saved?.moveLog ?? [],
+        captures: saved?.captures ?? [],
+        mode: 'local',
+        onlineGameId: null,
+        myColor: null,
+        opponent: null,
+        onlineEndReason: null,
+        orientation: (loadSettings().orientation as Orientation) ?? 'white',
       });
     },
 
@@ -435,6 +519,7 @@ export const useGameStore = create<GameStore>((set, get) => {
 
     clickSquare: (s) => {
       const { game, selected, legal, pending, mode, myColor } = get();
+      if (mode === 'replay') return; // просмотр истории: доска не кликается
       if (pending || game.result !== 'ongoing') return;
       // Онлайн: ходить можно только своим цветом и только в свою очередь.
       if (mode === 'online' && game.turn !== myColor) return;
@@ -498,11 +583,18 @@ export const useGameStore = create<GameStore>((set, get) => {
     },
 
     tickClock: () => {
-      const { clock, game, moveLog, captures, muted } = get();
+      const { clock, game, moveLog, captures, muted, mode } = get();
       if (!clock || clock.activeColor === null || game.result !== 'ongoing') return;
       const ticked = applyElapsed(clock, performance.now());
       const flagged = flaggedColor(ticked);
       if (flagged) {
+        // Онлайн: клиентский тикер — НЕ источник истины. Зажимаем показ на
+        // нуле и останавливаем тиканье; настоящий вердикт (game-over с
+        // reason='timeout') придёт от сервера — он сам следит за флажком.
+        if (mode === 'online') {
+          set({ clock: { ...ticked, activeColor: null, lastTickTs: null } });
+          return;
+        }
         const winner = flagged === 'white' ? 'black' : 'white';
         const result = isInsufficientMaterial(game.board) ? 'draw' : winner;
         const stopped: GameState = { ...game, result };

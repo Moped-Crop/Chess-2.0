@@ -210,6 +210,47 @@ app/      store/, components/, persistence/, i18n/, App.tsx, main.tsx
   Railway). На Railway также нужен `NPM_CONFIG_PRODUCTION=false` (иначе с
   `NODE_ENV=production` не ставятся devDependencies и сборка падает на `tsc`).
 
+## Онлайн-таймер и история партий (фазы 2+3)
+
+Миграция `server/db/migrations/003_online_timer_and_history.sql`: у games
+появились `time_control_id`, `white_ms`, `black_ms`, `turn_started_at`,
+`win_reason` + индекс истории.
+
+- **Часы онлайн-партии — сервер авторитетен.** Математика часов НЕ
+  дублируется: `server/lib/serverClock.ts` переиспользует чистые функции из
+  `src/app/clock/clock.ts` (`presetById`, `applyElapsed`, `switchAfterMove`,
+  `flaggedColor`) — тем же приёмом, что `gameEngine.ts` импортирует движок.
+  ВАЖНО: на сервере источник времени ВСЕГДА `Date.now()` (переживает
+  перезапуск, согласуется с TIMESTAMP), на клиенте — `performance.now()`;
+  при приёме серверного снэпшота клиент пересчитывает только `lastTickTs`
+  (`whiteMs`/`blackMs` копируются как есть). Не смешивать источники.
+- **Контроль времени задаётся при приглашении** (`friend-invite` требует
+  `timeControlId`; zod-enum собирается программно из `PRESETS`). Часы
+  инициализируются при `invite-accepted`, списываются в том же UPDATE, что
+  пишет ход; свежий снэпшот `clock` летит сопернику в каждом событии `move`.
+- **Тайм-аут**: `flagTimers` (Map по gameId, зеркалит `abandonTimers`) —
+  партия завершается сама, без хода. Два слоя защиты после перезапуска:
+  восстановление таймеров при старте `attachGameSockets` + ленивая проверка
+  `checkFlagged` в `join-game`. В `finishGame` флажок снимается безусловно.
+- **`win_reason` персистится для ВСЕХ причин** (`'game' | 'resign' |
+  'abandon' | 'timeout'`, тип EndReason — не голая строка) и отдаётся в
+  `game-state` (`reason`) вместе с `clock`/`timeControlId`. Клиентский тикер
+  в онлайне исход НЕ решает — при нуле зажимает показ и ждёт серверный
+  `game-over`.
+- **История — только онлайн-партии** (локальный hotseat на сервер не
+  отправляется — осознанно). `server/routes/games.ts`: `GET
+  /api/games/history?page=` (по 20, `hasMore`) и `GET /api/games/:id` —
+  только участнику, чужим — 404 как несуществующая. Страницы `/history`
+  (GameHistoryPage) и `/history/:id` (GameReplayPage — листание кадров,
+  клавиши ← →).
+- **`mode: 'replay'` в сторе — не путать с `'online'`**: доска не кликается,
+  `loadReplayFrame` НЕ пишет автосейв (в отличие от `loadMatch`), выход —
+  `exitReplay`. Заход на `/play/online/:id` завершённой партии редиректит на
+  `/history/:id` (фикс кнопки «назад»: причина теперь в БД, а не только в
+  разовом сокет-событии).
+- В онлайн-партии вкладки «Ходы/Настройки»; `OnlineSettingsTab` — только
+  язык/тема/звук (общие поля вынесены в `settingsFields.tsx`).
+
 ## Что НЕ входит в MVP (вырезано в Pre-Code Audit §4)
 
 - IndexedDB (только localStorage), PWA/offline, второй язык i18n.

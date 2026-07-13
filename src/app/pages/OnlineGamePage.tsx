@@ -5,13 +5,16 @@ import { Board } from '../components/Board';
 import { PlayerBar } from '../components/PlayerBar';
 import { StatusBanner } from '../components/StatusBanner';
 import { MovesTab } from '../components/tabs/MovesTab';
+import { OnlineSettingsTab } from '../components/tabs/OnlineSettingsTab';
 import { EvolutionModal } from '../components/EvolutionModal';
 import { GameOverModal } from '../components/GameOverModal';
 import { Brand } from '../components/Brand';
-import { useGameStore } from '../store/gameStore';
+import { useGameStore, type OnlineEndReason } from '../store/gameStore';
 import { useAuthStore } from '../store/authStore';
 import { connectSocket } from '../net/socket';
-import { useT } from '../i18n';
+import { useClockTicker } from '../useClockTicker';
+import { useT, type StrKey } from '../i18n';
+import type { ClockState } from '../clock/clock';
 
 interface PlayerInfo {
   username: string;
@@ -26,9 +29,19 @@ interface GameStatePayload {
   result: GameResult;
   moves: Move[];
   players: { white: PlayerInfo; black: PlayerInfo };
+  reason: OnlineEndReason | null;
+  clock: ClockState | null;
+  timeControlId: string | null;
 }
 
 type Conn = 'joining' | 'ok' | 'opponent-away' | 'reconnecting';
+
+type SideTab = 'moves' | 'settings';
+
+const SIDE_TABS: { id: SideTab; key: StrKey }[] = [
+  { id: 'moves', key: 'tabMoves' },
+  { id: 'settings', key: 'tabSettings' },
+];
 
 /**
  * Онлайн-партия: переиспользует доску, панели и модалки локального режима —
@@ -53,6 +66,10 @@ export function OnlineGamePage() {
   const [conn, setConn] = useState<Conn>('joining');
   const [confirmResign, setConfirmResign] = useState(false);
   const [waiting, setWaiting] = useState(false);
+  const [tab, setTab] = useState<SideTab>('moves');
+
+  // Часы в сторе заполняет сервер; без тикера они бы не шли на экране.
+  useClockTicker();
 
   useEffect(() => {
     if (!Number.isInteger(id) || id <= 0) {
@@ -73,6 +90,12 @@ export function OnlineGamePage() {
     const onState = (p: GameStatePayload) => {
       if (p.gameId !== id) return;
       synced = true;
+      // Партия уже завершена (например, вернулись кнопкой «назад» браузера):
+      // вместо сломанного «живого» окна — на экран просмотра с причиной.
+      if (p.status === 'finished') {
+        navigate(`/history/${id}`, { replace: true });
+        return;
+      }
       setPlayers(p.players);
       setWaiting(p.status === 'waiting');
       const oppColor: Color = p.myColor === 'white' ? 'black' : 'white';
@@ -84,12 +107,14 @@ export function OnlineGamePage() {
           avatarBase64: p.players[oppColor].avatarBase64,
         },
         moves: p.moves,
-        result: p.status === 'finished' ? p.result : 'ongoing',
+        result: 'ongoing',
+        reason: p.reason ?? null,
+        clock: p.clock ?? null,
       });
       setConn('ok');
     };
-    const onMove = (p: { gameId: number; move: Move }) => {
-      if (p.gameId === id) applyRemoteMove(p.move);
+    const onMove = (p: { gameId: number; move: Move; clock?: ClockState | null }) => {
+      if (p.gameId === id) applyRemoteMove(p.move, p.clock);
     };
     const onRejected = (p: { gameId: number }) => {
       // Рассинхрон: перезапрашиваем состояние, стор проиграет партию заново.
@@ -101,7 +126,13 @@ export function OnlineGamePage() {
       if (p.gameId !== id) return;
       finishOnlineGame(
         p.result,
-        p.reason === 'resign' ? 'resign' : p.reason === 'abandon' ? 'abandon' : 'game',
+        p.reason === 'timeout'
+          ? 'timeout'
+          : p.reason === 'resign'
+            ? 'resign'
+            : p.reason === 'abandon'
+              ? 'abandon'
+              : 'game',
       );
     };
     const onInviteAccepted = (p: { gameId: number }) => {
@@ -217,7 +248,21 @@ export function OnlineGamePage() {
               </button>
             )}
             <div className="section-divider" />
-            <MovesTab />
+            <div className="segmented segmented-block tabbar">
+              {SIDE_TABS.map((tb) => (
+                <button
+                  key={tb.id}
+                  className={tab === tb.id ? 'active' : ''}
+                  onClick={() => setTab(tb.id)}
+                >
+                  {t(tb.key)}
+                </button>
+              ))}
+            </div>
+            <div className="tab-panel-wrap" key={tab}>
+              {tab === 'moves' && <MovesTab />}
+              {tab === 'settings' && <OnlineSettingsTab />}
+            </div>
           </div>
         </aside>
       </div>
