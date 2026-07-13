@@ -8,6 +8,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { apiResetPassword } from '../api/auth';
 import { useT, type StrKey } from '../i18n';
 import { AuthShell, errorKey } from './authShared';
+import { PasswordInput } from '../components/PasswordInput';
 
 export function ResetPasswordPage() {
   const t = useT();
@@ -50,9 +51,7 @@ export function ResetPasswordPage() {
         <form onSubmit={onSubmit}>
           <label className="field">
             <span className="field-label">{t('resetNewPassword')}</span>
-            <input
-              className="input"
-              type="password"
+            <PasswordInput
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="new-password"

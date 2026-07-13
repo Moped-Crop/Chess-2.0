@@ -4,20 +4,27 @@ import { api } from './client';
 import type { PublicUser } from './auth';
 import type { Lang } from '../i18n';
 
-export function apiChangePassword(currentPassword: string, newPassword: string): Promise<{ ok: boolean }> {
+// code — второй фактор (TOTP или резервный код); нужен, только если у
+// пользователя включена 2FA.
+export function apiChangePassword(
+  currentPassword: string,
+  newPassword: string,
+  code?: string,
+): Promise<{ ok: boolean }> {
   return api('/api/account/change-password', {
     method: 'POST',
-    body: { currentPassword, newPassword },
+    body: { currentPassword, newPassword, code },
   });
 }
 
 export function apiChangeUsername(
   currentPassword: string,
   newUsername: string,
+  code?: string,
 ): Promise<{ user: PublicUser }> {
   return api('/api/account/change-username', {
     method: 'POST',
-    body: { currentPassword, newUsername },
+    body: { currentPassword, newUsername, code },
   });
 }
 
@@ -25,10 +32,11 @@ export function apiChangeEmail(
   currentPassword: string,
   newEmail: string,
   lang?: Lang,
+  code?: string,
 ): Promise<{ ok: boolean; pendingEmail: string }> {
   return api('/api/account/change-email', {
     method: 'POST',
-    body: { currentPassword, newEmail, lang },
+    body: { currentPassword, newEmail, lang, code },
   });
 }
 

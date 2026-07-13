@@ -199,6 +199,15 @@ const STRINGS = {
     delFinalWarning: 'Это действие необратимо. Партии сохранятся под именем «Удалённый пользователь».',
     delConfirmBtn: 'Удалить навсегда',
     savedGeneric: 'Готово ✓',
+    showPassword: 'Показать пароль',
+    hidePassword: 'Скрыть пароль',
+    authPasswordConfirm: 'Повторите пароль',
+    errPasswordMismatch: 'Пароли не совпадают',
+    secureTitle: 'Защитите аккаунт',
+    secureIntro:
+      'Включите двухфакторную аутентификацию — при входе понадобится код из приложения-аутентификатора. Это сильно усложняет взлом аккаунта.',
+    secureSkip: 'Позже',
+    sec2faHint: 'Так как включена 2FA, подтвердите код из приложения (или резервный код).',
   },
   en: {
     subtitle: '10×8 variant',
@@ -391,6 +400,15 @@ const STRINGS = {
     delFinalWarning: 'This action is irreversible. Your games remain under “Deleted user”.',
     delConfirmBtn: 'Delete forever',
     savedGeneric: 'Done ✓',
+    showPassword: 'Show password',
+    hidePassword: 'Hide password',
+    authPasswordConfirm: 'Repeat password',
+    errPasswordMismatch: 'Passwords do not match',
+    secureTitle: 'Secure your account',
+    secureIntro:
+      'Enable two-factor authentication — you will need a code from an authenticator app at sign in. It makes hijacking your account much harder.',
+    secureSkip: 'Later',
+    sec2faHint: 'Since 2FA is enabled, confirm the code from your app (or a backup code).',
   },
 } satisfies Record<Lang, Record<string, string>>;
 

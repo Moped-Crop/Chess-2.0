@@ -14,6 +14,7 @@ import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { ConfirmEmailChangePage } from './pages/ConfirmEmailChangePage';
 import { MenuPage } from './pages/MenuPage';
+import { SecureAccountPage } from './pages/SecureAccountPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { FriendsPage } from './pages/FriendsPage';
 import { OnlineGamePage } from './pages/OnlineGamePage';
@@ -70,6 +71,14 @@ export function AppRouter() {
         element={
           <RequireAuth>
             <MenuPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/secure-account"
+        element={
+          <RequireAuth>
+            <SecureAccountPage />
           </RequireAuth>
         }
       />

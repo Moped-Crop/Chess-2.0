@@ -6,6 +6,7 @@ import { ApiError } from '../api/client';
 import { useT, type StrKey } from '../i18n';
 import { AuthShell, errorKey } from './authShared';
 import { CheckEmailNotice } from '../components/CheckEmailNotice';
+import { PasswordInput } from '../components/PasswordInput';
 
 /** Страница входа: логин/email + пароль, с ветками «подтвердите почту» и 2FA. */
 export function LoginPage() {
@@ -127,9 +128,7 @@ export function LoginPage() {
         </label>
         <label className="field">
           <span className="field-label">{t('authPassword')}</span>
-          <input
-            className="input"
-            type="password"
+          <PasswordInput
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"

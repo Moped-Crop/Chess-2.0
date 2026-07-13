@@ -46,9 +46,12 @@ const MAX_DELETE_ATTEMPTS = 5;
 
 const langField = z.enum(['ru', 'en']).optional();
 
+// `code` — второй фактор (TOTP или резервный код). Требуется, только если у
+// пользователя включена 2FA (проверка ниже, в verify2faIfEnabled).
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1).max(128),
   newPassword: z.string().min(8).max(128),
+  code: z.string().min(1).max(32).optional(),
 });
 const changeUsernameSchema = z.object({
   currentPassword: z.string().min(1).max(128),
@@ -57,11 +60,13 @@ const changeUsernameSchema = z.object({
     .min(3)
     .max(32)
     .regex(/^[a-zA-Z0-9_]+$/, 'Только латиница, цифры и подчёркивание'),
+  code: z.string().min(1).max(32).optional(),
 });
 const changeEmailSchema = z.object({
   currentPassword: z.string().min(1).max(128),
   newEmail: z.email().max(255),
   lang: langField,
+  code: z.string().min(1).max(32).optional(),
 });
 const confirmEmailChangeSchema = z.object({ token: z.string().min(1).max(128) });
 const confirmSchema = z.object({ code: z.string().min(1).max(32) });
@@ -147,14 +152,40 @@ export function accountRouter(pool: pg.Pool, env: Env, mailer: Mailer): Router {
     return r.rows[0] as AccountRow | undefined;
   }
 
+  /**
+   * Проверить второй фактор для чувствительной операции, ЕСЛИ у пользователя
+   * включена 2FA. Без 2FA — всегда ok (код не требуется). Резервный код при
+   * использовании помечается использованным. Возвращает признак прохождения.
+   */
+  async function verify2faIfEnabled(row: AccountRow, code: string | undefined): Promise<boolean> {
+    if (!row.totp_enabled) return true;
+    if (!code || !row.totp_secret_enc) return false;
+    const secret = decryptSecret(row.totp_secret_enc, env.TOTP_ENCRYPTION_KEY);
+    const backup = parseBackupCodes(row.totp_backup_codes);
+    const result = await verifySecondFactor(secret, backup, code);
+    if (!result.ok) return false;
+    if (result.backupIndex !== null) {
+      backup[result.backupIndex].used = true;
+      await pool.query('UPDATE users SET totp_backup_codes = $1 WHERE id = $2', [
+        JSON.stringify(backup),
+        row.id,
+      ]);
+    }
+    return true;
+  }
+
   /* ==================== Раздел 10: смена пароля/логина/почты ==================== */
 
   router.post('/change-password', auth, limiter, validate(changePasswordSchema), async (req: AuthedRequest, res, next) => {
     try {
-      const { currentPassword, newPassword } = req.body as z.infer<typeof changePasswordSchema>;
+      const { currentPassword, newPassword, code } = req.body as z.infer<typeof changePasswordSchema>;
       const row = await load(req.userId!);
       if (!row || !(await bcrypt.compare(currentPassword, row.password_hash))) {
         res.status(401).json({ error: 'wrong_password' });
+        return;
+      }
+      if (!(await verify2faIfEnabled(row, code))) {
+        res.status(401).json({ error: 'totp_invalid' });
         return;
       }
       const hash = await bcrypt.hash(newPassword, BCRYPT_COST);
@@ -174,10 +205,14 @@ export function accountRouter(pool: pg.Pool, env: Env, mailer: Mailer): Router {
 
   router.post('/change-username', auth, limiter, validate(changeUsernameSchema), async (req: AuthedRequest, res, next) => {
     try {
-      const { currentPassword, newUsername } = req.body as z.infer<typeof changeUsernameSchema>;
+      const { currentPassword, newUsername, code } = req.body as z.infer<typeof changeUsernameSchema>;
       const row = await load(req.userId!);
       if (!row || !(await bcrypt.compare(currentPassword, row.password_hash))) {
         res.status(401).json({ error: 'wrong_password' });
+        return;
+      }
+      if (!(await verify2faIfEnabled(row, code))) {
+        res.status(401).json({ error: 'totp_invalid' });
         return;
       }
       const taken = await pool.query('SELECT 1 FROM users WHERE username = $1 AND id <> $2', [
@@ -197,10 +232,14 @@ export function accountRouter(pool: pg.Pool, env: Env, mailer: Mailer): Router {
 
   router.post('/change-email', auth, limiter, validate(changeEmailSchema), async (req: AuthedRequest, res, next) => {
     try {
-      const { currentPassword, newEmail } = req.body as z.infer<typeof changeEmailSchema>;
+      const { currentPassword, newEmail, code } = req.body as z.infer<typeof changeEmailSchema>;
       const row = await load(req.userId!);
       if (!row || !(await bcrypt.compare(currentPassword, row.password_hash))) {
         res.status(401).json({ error: 'wrong_password' });
+        return;
+      }
+      if (!(await verify2faIfEnabled(row, code))) {
+        res.status(401).json({ error: 'totp_invalid' });
         return;
       }
       const taken = await pool.query('SELECT 1 FROM users WHERE email = $1 AND id <> $2', [
