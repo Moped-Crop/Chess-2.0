@@ -43,8 +43,8 @@ describe('POST /api/auth/register', () => {
     expect(stats.rowCount).toBe(1);
   });
 
-  it('rejects duplicate username / email with 409', async () => {
-    await registerRaw('alice');
+  it('rejects duplicate username / email of a VERIFIED account with 409', async () => {
+    await registerUser(ctx, 'alice'); // подтверждённый аккаунт — защищён
     const { agent, csrf } = await agentWithCsrf(ctx.app);
     const dupName = await agent.post('/api/auth/register').set('X-CSRF-Token', csrf).send({
       username: 'alice',
@@ -63,6 +63,55 @@ describe('POST /api/auth/register', () => {
     });
     expect(dupEmail.status).toBe(409);
     expect(dupEmail.body.error).toBe('email_taken');
+  });
+
+  it('frees the username of an UNVERIFIED registration (email typo fix)', async () => {
+    // Опечатка в почте: аккаунт создан, письмо ушло не туда, подтверждения
+    // не будет никогда.
+    await registerRaw('alice'); // alice@test.dev, email_verified = false
+
+    // Повторная регистрация тем же ником с правильной почтой — работает сразу.
+    const { agent, csrf } = await agentWithCsrf(ctx.app);
+    const retry = await agent.post('/api/auth/register').set('X-CSRF-Token', csrf).send({
+      username: 'alice',
+      email: 'alice-correct@test.dev',
+      password: 'password-123',
+      displayName: 'alice',
+    });
+    expect(retry.status).toBe(201);
+
+    // Старая строка удалена насовсем, осталась одна — с новой почтой.
+    const rows = await ctx.pool.query('SELECT email, email_verified FROM users WHERE username = $1', [
+      'alice',
+    ]);
+    expect(rows.rowCount).toBe(1);
+    expect(rows.rows[0].email).toBe('alice-correct@test.dev');
+
+    // Новую регистрацию можно подтвердить и войти.
+    const token = ctx.mailer.lastToken();
+    const verify = await agent
+      .post('/api/auth/verify-email')
+      .set('X-CSRF-Token', csrf)
+      .send({ token });
+    expect(verify.status).toBe(200);
+    expect(verify.body.user.username).toBe('alice');
+  });
+
+  it('frees a stale unverified row when the EMAIL matches too', async () => {
+    await registerRaw('alice'); // занята и почта alice@test.dev
+    const { agent, csrf } = await agentWithCsrf(ctx.app);
+    const retry = await agent.post('/api/auth/register').set('X-CSRF-Token', csrf).send({
+      username: 'alice_new',
+      email: 'alice@test.dev', // та же почта, другой ник
+      password: 'password-123',
+      displayName: 'alice_new',
+    });
+    expect(retry.status).toBe(201);
+    const rows = await ctx.pool.query('SELECT username FROM users WHERE email = $1', [
+      'alice@test.dev',
+    ]);
+    expect(rows.rowCount).toBe(1);
+    expect(rows.rows[0].username).toBe('alice_new');
   });
 
   it('rejects invalid input and missing CSRF', async () => {

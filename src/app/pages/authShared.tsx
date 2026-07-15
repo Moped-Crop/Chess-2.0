@@ -69,7 +69,7 @@ function AuthLangSwitch() {
 export function AuthShell({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="auth-page">
-      <Brand withSub={false} />
+      <Brand />
       <div className="card auth-card">
         <AuthLangSwitch />
         <h2 className="auth-title">{title}</h2>

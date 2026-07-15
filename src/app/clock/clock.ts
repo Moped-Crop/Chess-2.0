@@ -32,12 +32,19 @@ export interface ClockState {
   lastTickTs: number | null; // performance.now() на момент последнего обновления
 }
 
+// Порядок: вариант «без инкремента» идёт рядом со своим «с инкрементом» на
+// той же скорости. Единый источник для локального режима (SettingsTab) и
+// онлайна (пикер приглашения + zod-enum сервера строятся из этого массива).
 export const PRESETS: TimePreset[] = [
   { id: 'none', label: 'Без часов', labelEn: 'No clock', baseMs: 0, incrementMs: 0, mode: 'none' },
   { id: '1+0', label: 'Пуля 1+0', labelEn: 'Bullet 1+0', baseMs: 60_000, incrementMs: 0, mode: 'fischer' },
+  { id: '3+0', label: 'Блиц 3+0', labelEn: 'Blitz 3+0', baseMs: 180_000, incrementMs: 0, mode: 'fischer' },
   { id: '3+2', label: 'Блиц 3+2', labelEn: 'Blitz 3+2', baseMs: 180_000, incrementMs: 2_000, mode: 'fischer' },
+  { id: '5+0', label: 'Блиц 5+0', labelEn: 'Blitz 5+0', baseMs: 300_000, incrementMs: 0, mode: 'fischer' },
   { id: '5+3', label: 'Блиц 5+3', labelEn: 'Blitz 5+3', baseMs: 300_000, incrementMs: 3_000, mode: 'fischer' },
+  { id: '10+0', label: 'Рапид 10+0', labelEn: 'Rapid 10+0', baseMs: 600_000, incrementMs: 0, mode: 'fischer' },
   { id: '10+5', label: 'Рапид 10+5', labelEn: 'Rapid 10+5', baseMs: 600_000, incrementMs: 5_000, mode: 'fischer' },
+  { id: '15+0', label: 'Классика 15+0', labelEn: 'Classical 15+0', baseMs: 900_000, incrementMs: 0, mode: 'fischer' },
   { id: '15+10', label: 'Классика 15+10', labelEn: 'Classical 15+10', baseMs: 900_000, incrementMs: 10_000, mode: 'fischer' },
 ];
 

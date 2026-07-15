@@ -4,7 +4,7 @@
  * страницах, а не только в игре.
  */
 
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { App } from './App';
 import { LoginPage } from './pages/LoginPage';
@@ -20,13 +20,27 @@ import { FriendsPage } from './pages/FriendsPage';
 import { OnlineGamePage } from './pages/OnlineGamePage';
 import { GameHistoryPage } from './pages/GameHistoryPage';
 import { GameReplayPage } from './pages/GameReplayPage';
+import { HowToPlayPage } from './pages/HowToPlayPage';
 import { InviteLayer } from './components/InviteLayer';
 import { useAuthStore } from './store/authStore';
 import { useGameStore } from './store/gameStore';
 import { useT } from './i18n';
 
+/**
+ * Отложенный лоадер: проверка сессии обычно занимает десятки миллисекунд, и
+ * мгновенный серый блок «Загрузка…» успевал только мигнуть. Первые 300 мс не
+ * рендерим ничего — при быстрой проверке экран просто спокоен; надпись
+ * появляется только если проверка действительно затянулась. Логика
+ * RequireAuth/HomeRedirect не изменена — это чисто визуальная задержка.
+ */
 function Loader() {
   const t = useT();
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const id = window.setTimeout(() => setVisible(true), 300);
+    return () => window.clearTimeout(id);
+  }, []);
+  if (!visible) return null;
   return <div className="page-loader">{t('loading')}</div>;
 }
 
@@ -101,6 +115,8 @@ export function AppRouter() {
         }
       />
       <Route path="/play/local" element={<App />} />
+      {/* Обучение доступно и без логина — ничего серверного ему не нужно. */}
+      <Route path="/how-to-play" element={<HowToPlayPage />} />
       <Route
         path="/play/online/:gameId"
         element={

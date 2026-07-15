@@ -36,6 +36,8 @@ export function GameReplayPage() {
   const navigate = useNavigate();
 
   const loadReplayFrame = useGameStore((s) => s.loadReplayFrame);
+  const stepReplayForward = useGameStore((s) => s.stepReplayForward);
+  const stepReplayBackward = useGameStore((s) => s.stepReplayBackward);
   const exitReplay = useGameStore((s) => s.exitReplay);
 
   const [detail, setDetail] = useState<GameDetail | null>(null);
@@ -89,36 +91,72 @@ export function GameReplayPage() {
     return { games, log, caps };
   }, [detail]);
 
-  // Показ кадра: позиция и последний ход меняются, лог и взятия всегда полные.
+  const total = detail?.moves.length ?? 0;
+
+  const lastOf = (i: number) =>
+    detail && i > 0 ? { from: detail.moves[i - 1].from, to: detail.moves[i - 1].to } : null;
+
+  // Первичная загрузка: финальная позиция целиком (лог и взятия всегда полные).
   useEffect(() => {
     if (!detail || !frames) return;
-    const last = idx > 0 ? detail.moves[idx - 1] : null;
     loadReplayFrame({
-      game: frames.games[idx],
+      game: frames.games[detail.moves.length],
       moveLog: frames.log,
       captures: frames.caps,
-      lastMove: last ? { from: last.from, to: last.to } : null,
+      lastMove:
+        detail.moves.length > 0
+          ? {
+              from: detail.moves[detail.moves.length - 1].from,
+              to: detail.moves[detail.moves.length - 1].to,
+            }
+          : null,
     });
     // Своя сторона снизу (как в онлайн-партии); настройка не перезаписывается —
     // exitReplay вернёт сохранённую ориентацию.
     useGameStore.setState({ orientation: detail.myColor });
-  }, [detail, frames, idx, loadReplayFrame]);
+  }, [detail, frames, loadReplayFrame]);
 
   // При уходе со страницы — вернуть локальный автосейв.
   useEffect(() => exitReplay, [exitReplay]);
 
-  const total = detail?.moves.length ?? 0;
-  const clamp = (v: number) => Math.min(total, Math.max(0, v));
+  // Одиночный шаг — через stepReplay* (честный переход с анимацией, A5);
+  // прыжок в начало/конец — мгновенно через loadReplayFrame, это осознанно.
+  function goForward() {
+    if (!detail || !frames || idx >= total) return;
+    stepReplayForward(detail.moves[idx]);
+    setIdx(idx + 1);
+  }
+
+  function goBackward() {
+    if (!detail || !frames || idx === 0) return;
+    stepReplayBackward({
+      game: frames.games[idx - 1],
+      lastMove: lastOf(idx - 1),
+      undone: detail.moves[idx - 1],
+    });
+    setIdx(idx - 1);
+  }
+
+  function jumpTo(i: number) {
+    if (!detail || !frames) return;
+    loadReplayFrame({
+      game: frames.games[i],
+      moveLog: frames.log,
+      captures: frames.caps,
+      lastMove: lastOf(i),
+    });
+    setIdx(i);
+  }
 
   // Листание клавишами ← → .
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') setIdx((v) => clamp(v - 1));
-      if (e.key === 'ArrowRight') setIdx((v) => clamp(v + 1));
+      if (e.key === 'ArrowLeft') goBackward();
+      if (e.key === 'ArrowRight') goForward();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [total]);
+  });
 
   if (!detail || !frames) {
     return (
@@ -190,19 +228,19 @@ export function GameReplayPage() {
             <Board />
           </div>
           <div className="replay-controls">
-            <button className="btn btn-subtle" title={t('replayStart')} disabled={idx === 0} onClick={() => setIdx(0)}>
+            <button className="btn btn-subtle" title={t('replayStart')} disabled={idx === 0} onClick={() => jumpTo(0)}>
               ⏮
             </button>
-            <button className="btn btn-subtle" title={t('replayPrev')} disabled={idx === 0} onClick={() => setIdx(clamp(idx - 1))}>
+            <button className="btn btn-subtle" title={t('replayPrev')} disabled={idx === 0} onClick={goBackward}>
               ◀
             </button>
             <span className="replay-counter">
               {idx} / {total}
             </span>
-            <button className="btn btn-subtle" title={t('replayNext')} disabled={idx === total} onClick={() => setIdx(clamp(idx + 1))}>
+            <button className="btn btn-subtle" title={t('replayNext')} disabled={idx === total} onClick={goForward}>
               ▶
             </button>
-            <button className="btn btn-subtle" title={t('replayEnd')} disabled={idx === total} onClick={() => setIdx(total)}>
+            <button className="btn btn-subtle" title={t('replayEnd')} disabled={idx === total} onClick={() => jumpTo(total)}>
               ⏭
             </button>
           </div>

@@ -46,7 +46,11 @@ export function createApp({ pool, env, mailer }: AppDeps): express.Express {
           // Google Fonts из index.html + аватары base64 + вебсокеты.
           styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
           fontSrc: ["'self'", 'https://fonts.gstatic.com'],
-          imgSrc: ["'self'", 'data:'],
+          // blob: — обрезка аватарки читает выбранный пользователем файл через
+          // URL.createObjectURL; такие ссылки всегда локальные, внешнее через
+          // них не загрузить. Без blob: загрузка аватарки блокировалась CSP
+          // для ЛЮБОГО формата файла.
+          imgSrc: ["'self'", 'data:', 'blob:'],
           connectSrc: ["'self'", 'ws:', 'wss:'],
         },
       },

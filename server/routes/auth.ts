@@ -170,6 +170,19 @@ export function authRouter(pool: pg.Pool, env: Env, mailer: Mailer): Router {
     try {
       const { username, email, password, displayName } = req.body as z.infer<typeof registerSchema>;
 
+      // Опечатка в почте не должна навсегда занимать никнейм: аккаунт, чья
+      // почта так и не подтверждена, никогда не был «использован» (без сессии
+      // в него нельзя войти — ни партий, ни друзей, только нулевая строка
+      // stats на каскадном удалении). Такую строку честно удаляем и даём
+      // зарегистрироваться заново — сразу, без ожидания истечения токена.
+      // deleted_at IS NULL — страховка: анонимизированные аккаунты не трогаем
+      // (на них могут ссылаться сыгранные партии).
+      await pool.query(
+        `DELETE FROM users
+         WHERE (username = $1 OR email = $2) AND email_verified = false AND deleted_at IS NULL`,
+        [username, email],
+      );
+
       const taken = await pool.query(
         'SELECT username, email FROM users WHERE username = $1 OR email = $2',
         [username, email],

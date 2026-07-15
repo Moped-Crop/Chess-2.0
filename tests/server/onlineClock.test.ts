@@ -157,6 +157,50 @@ describe('clock on moves', () => {
   });
 });
 
+describe('no-increment presets (5+0)', () => {
+  it('invite with 5+0 creates the game; moves debit time WITHOUT adding increment', async () => {
+    const alice = await makeUser('alice');
+    const bob = await makeUser('bob');
+    await pool.query(
+      `INSERT INTO friendships (requester_id, addressee_id, status) VALUES ($1, $2, 'accepted')`,
+      [alice, bob],
+    );
+    const a = connectAs(alice);
+    const b = connectAs(bob);
+    await waitFor(a, 'connect');
+    await waitFor(b, 'connect');
+
+    // Приглашение с новым пресетом проходит zod-валидацию сервера.
+    const invitePromise = waitFor<{ gameId: number; timeControlId: string }>(b, 'friend-invite');
+    a.emit('friend-invite', { toUserId: bob, timeControlId: '5+0' });
+    const invite = await invitePromise;
+    expect(invite.timeControlId).toBe('5+0');
+
+    const accepted = waitFor<{ gameId: number }>(a, 'invite-accepted');
+    b.emit('invite-accepted', { gameId: invite.gameId });
+    await accepted;
+    const init = await pool.query('SELECT white_ms, black_ms FROM games WHERE id = $1', [
+      invite.gameId,
+    ]);
+    expect(init.rows[0]).toMatchObject({ white_ms: 300_000, black_ms: 300_000 });
+
+    // Ход: время списывается, инкремент НЕ добавляется (строго меньше базы).
+    // Цвета в приглашении случайны — ходит тот сокет, кому выпали белые.
+    const stateA = await joinGame(a, invite.gameId);
+    await joinGame(b, invite.gameId);
+    const white = stateA.myColor === 'white' ? a : b;
+    const black = stateA.myColor === 'white' ? b : a;
+    await new Promise((r) => setTimeout(r, 250));
+    const moveAtBlack = waitFor<{ clock: ClockState | null }>(black, 'move');
+    white.emit('move', { gameId: invite.gameId, move: E2E4, index: 0 });
+    const got = await moveAtBlack;
+    const clock = got.clock as ClockState;
+    expect(clock.incrementMs).toBe(0);
+    expect(clock.whiteMs).toBeLessThan(300_000);
+    expect(clock.whiteMs).toBeGreaterThan(290_000);
+  });
+});
+
 describe('flag timer (timeout)', () => {
   it('finishes the game by timeout on its own, without any player action', async () => {
     const alice = await makeUser('alice');
