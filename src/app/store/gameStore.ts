@@ -42,7 +42,7 @@ import { emitMove } from '../net/socket';
 
 export type Orientation = 'white' | 'black' | 'auto';
 export type UiTheme = 'dark' | 'light';
-export type GameMode = 'local' | 'online' | 'replay';
+export type GameMode = 'local' | 'online' | 'replay' | 'tutorial';
 
 /** Причина завершения онлайн-партии ('game' — мат/пат/ничья по правилам). */
 export type OnlineEndReason = 'game' | 'resign' | 'abandon' | 'timeout';
@@ -77,6 +77,29 @@ export interface LastAction {
   promoted?: boolean;
 }
 
+/**
+ * Собрать LastAction для анимаций доски. Чистая функция — используется и в
+ * commit() (живая партия), и в пошаговой перемотке повтора (stepReplay*).
+ */
+export function buildLastAction(before: GameState, move: Move, prevSeq: number): LastAction {
+  const capturedPiece = move.capture !== undefined ? before.board[move.capture] : null;
+  const homeRank = before.turn === 'white' ? 0 : 7;
+  const isCastle = move.special === 'castle-king' || move.special === 'castle-queen';
+  return {
+    seq: prevSeq + 1,
+    from: move.from,
+    to: move.to,
+    ...(isCastle && {
+      rookFrom: move.special === 'castle-king' ? homeRank * 10 + 9 : homeRank * 10,
+      rookTo: move.special === 'castle-king' ? homeRank * 10 + 6 : homeRank * 10 + 4,
+    }),
+    ...(move.capture !== undefined &&
+      capturedPiece && { capturedSquare: move.capture, capturedPiece }),
+    ...(move.evolveTo !== undefined && { evolved: true }),
+    ...(move.promotion !== undefined && { promoted: true }),
+  };
+}
+
 interface GameStore {
   game: GameState;
   past: GameState[];
@@ -85,6 +108,8 @@ interface GameStore {
   pending: PendingChoice | null;
   lastMove: { from: Square; to: Square } | null;
   lastAction: LastAction | null;
+  /** Последний применённый ход как есть (для проверки целей практики). */
+  lastMoveApplied: Move | null;
   clock: ClockState | null;
   presetId: string;
   moveLog: MoveEntry[];
@@ -134,6 +159,24 @@ interface GameStore {
   }) => void;
   /** Выйти из повтора и вернуть локальный автосейв. */
   exitReplay: () => void;
+  // --- Практика обучения (mode='tutorial': реальные ходы на настоящей доске) ---
+  /** Начать упражнение: позиция + чей ход (+ поле e.p., если сценарию нужно). */
+  startTutorialPractice: (payload: {
+    board: (Piece | null)[];
+    turn: Color;
+    enPassant?: Square | null;
+  }) => void;
+  /** Выйти из практики и вернуть локальный автосейв. */
+  exitTutorialPractice: () => void;
+
+  /** Перемотка повтора на один ход ВПЕРЁД: честный before→after с анимацией. */
+  stepReplayForward: (move: Move) => void;
+  /** Перемотка на один ход НАЗАД: готовый кадр N−1 + развёрнутая анимация. */
+  stepReplayBackward: (payload: {
+    game: GameState;
+    lastMove: { from: Square; to: Square } | null;
+    undone: Move;
+  }) => void;
 
   newGame: () => void;
   setPreset: (id: string) => void;
@@ -204,21 +247,7 @@ export const useGameStore = create<GameStore>((set, get) => {
         : clock;
 
     // Данные для анимаций доски (см. LastAction).
-    const homeRank = game.turn === 'white' ? 0 : 7;
-    const isCastle = move.special === 'castle-king' || move.special === 'castle-queen';
-    const action: LastAction = {
-      seq: (get().lastAction?.seq ?? 0) + 1,
-      from: move.from,
-      to: move.to,
-      ...(isCastle && {
-        rookFrom: move.special === 'castle-king' ? homeRank * 10 + 9 : homeRank * 10,
-        rookTo: move.special === 'castle-king' ? homeRank * 10 + 6 : homeRank * 10 + 4,
-      }),
-      ...(move.capture !== undefined &&
-        capturedPiece && { capturedSquare: move.capture, capturedPiece }),
-      ...(move.evolveTo !== undefined && { evolved: true }),
-      ...(move.promotion !== undefined && { promoted: true }),
-    };
+    const action = buildLastAction(game, move, get().lastAction?.seq ?? 0);
 
     set({
       game: next,
@@ -228,6 +257,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       pending: null,
       lastMove: { from: move.from, to: move.to },
       lastAction: action,
+      lastMoveApplied: move,
       clock: nextClock,
       moveLog: nextLog,
       captures: nextCaptures,
@@ -255,6 +285,7 @@ export const useGameStore = create<GameStore>((set, get) => {
     pending: null,
     lastMove: null,
     lastAction: null,
+    lastMoveApplied: null,
     clock: null,
     presetId: 'none',
     moveLog: loaded?.moveLog ?? [],
@@ -395,6 +426,103 @@ export const useGameStore = create<GameStore>((set, get) => {
         opponent: null,
         onlineEndReason: null,
       });
+    },
+
+    startTutorialPractice: ({ board, turn, enPassant }) => {
+      // Свежий GameState из позиции сценария: «ничего ещё не ходило» —
+      // права рокировки полные (hasMoved фигур и так false), счётчики нулевые.
+      const g: GameState = {
+        board: board.slice(),
+        turn,
+        castling: { whiteKing: true, whiteQueen: true, blackKing: true, blackQueen: true },
+        enPassant: enPassant ?? null,
+        halfmoveClock: 0,
+        fullmove: 1,
+        history: [],
+        result: 'ongoing',
+      };
+      // Автосейв НЕ трогаем: практика — песочница (commit пишет сейв только
+      // в mode='local').
+      set({
+        game: g,
+        past: [],
+        selected: null,
+        legal: legalMoves(g),
+        pending: null,
+        lastMove: null,
+        lastAction: null,
+        lastMoveApplied: null,
+        clock: null,
+        moveLog: [],
+        captures: [],
+        mode: 'tutorial',
+        onlineGameId: null,
+        myColor: null,
+        opponent: null,
+        onlineEndReason: null,
+        orientation: 'white',
+      });
+    },
+
+    exitTutorialPractice: () => {
+      if (get().mode !== 'tutorial') return;
+      // Возвращаем локальный автосейв — как exitReplay.
+      const saved = loadGame();
+      const g = saved?.game ?? createInitialState();
+      set({
+        game: g,
+        past: [],
+        selected: null,
+        legal: g.result === 'ongoing' ? legalMoves(g) : [],
+        pending: null,
+        lastMove: null,
+        lastAction: null,
+        clock: null,
+        moveLog: saved?.moveLog ?? [],
+        captures: saved?.captures ?? [],
+        mode: 'local',
+        onlineGameId: null,
+        myColor: null,
+        opponent: null,
+        onlineEndReason: null,
+        orientation: (loadSettings().orientation as Orientation) ?? 'white',
+      });
+    },
+
+    stepReplayForward: (move) => {
+      const { game, mode, lastAction } = get();
+      if (mode !== 'replay') return;
+      // Реальное применение хода движком (не подстановка готового кадра):
+      // Board.tsx получает честный before→after и анимирует как в живой партии.
+      const applied = applyMove(game, move);
+      const next: GameState = { ...applied, result: computeResult(applied) };
+      set({
+        game: next,
+        lastMove: { from: move.from, to: move.to },
+        lastAction: buildLastAction(game, move, lastAction?.seq ?? 0),
+      });
+    },
+
+    stepReplayBackward: ({ game, lastMove, undone }) => {
+      const { mode, lastAction } = get();
+      if (mode !== 'replay') return;
+      // Кадр N−1 прекомпьютнут страницей; анимация — развёрнутый ход: фигура
+      // едет обратно (to→from), ладья Бастиона тоже. Взятая фигура появляется
+      // мгновенно (растворение «задом наперёд» красиво не сделать), вспышку
+      // эволюции/превращения назад не показываем — осознанные упрощения.
+      const isCastle = undone.special === 'castle-king' || undone.special === 'castle-queen';
+      // После отката очередь хода — у той стороны, что делала отменённый ход.
+      const homeRank = game.turn === 'white' ? 0 : 7;
+      const action: LastAction = {
+        seq: (lastAction?.seq ?? 0) + 1,
+        from: undone.to,
+        to: undone.from,
+        ...(isCastle && {
+          rookFrom: undone.special === 'castle-king' ? homeRank * 10 + 6 : homeRank * 10 + 4,
+          rookTo: undone.special === 'castle-king' ? homeRank * 10 + 9 : homeRank * 10,
+        }),
+      };
+      set({ game, lastMove, lastAction: action, selected: null, pending: null });
     },
 
     exitReplay: () => {

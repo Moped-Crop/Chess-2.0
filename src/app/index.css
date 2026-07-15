@@ -233,15 +233,6 @@ button {
   margin: 0 7px;
 }
 
-.brand-sub {
-  font-size: var(--fs-xs);
-  color: var(--text-faint);
-  letter-spacing: 2.2px;
-  text-transform: uppercase;
-  padding-left: 12px;
-  border-left: 1px solid var(--border);
-  white-space: nowrap;
-}
 
 .topbar-actions {
   display: flex;
@@ -1650,6 +1641,11 @@ button {
   border: 1px solid rgba(239, 71, 87, 0.4);
   color: var(--danger);
   font-size: var(--fs-sm);
+}
+
+/* В профиле сообщение об ошибке идёт сразу после кнопок — даём ему воздух. */
+.profile-card .form-error {
+  margin-top: 16px;
   font-weight: 600;
   animation: fade-in var(--t-med) var(--ease);
 }
@@ -2039,6 +2035,137 @@ button {
   color: var(--text-dim);
 }
 
+/* --- Страница «Как играть» (/how-to-play) --- */
+
+.htp-page {
+  padding-bottom: 40px;
+}
+
+.htp-card {
+  max-width: 620px;
+  margin: 18px auto 0;
+  padding: 20px 22px;
+}
+
+.htp-card-wide {
+  max-width: 780px;
+}
+
+.htp-title {
+  margin: 0 0 6px;
+}
+
+/* Задание практики: та же стилистика, что плашки демо, но в потоке страницы. */
+.htp-goal {
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  line-height: 1.4;
+  margin-bottom: 12px;
+  animation: fade-in var(--t-med) var(--ease);
+}
+
+.htp-goal.event {
+  border-color: rgba(232, 181, 58, 0.55);
+  box-shadow: 0 2px 16px rgba(232, 181, 58, 0.25);
+}
+
+.htp-board {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+/* --- Справочник эволюций --- */
+
+.evo-ref-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.evo-ref-card {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.evo-ref-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.evo-ref-arrow {
+  color: var(--text-faint);
+}
+
+.evo-ref-names {
+  display: flex;
+  flex-direction: column;
+  margin-left: 6px;
+  line-height: 1.25;
+}
+
+.evo-ref-base {
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+}
+
+.evo-ref-diagram {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+  user-select: none;
+}
+
+.evo-ref-hint {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.evo-ref-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 14px;
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+.evo-ref-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.lg-dot,
+.lg-move,
+.lg-cap {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.lg-dot {
+  background: #5b7cfa;
+}
+
+.lg-move {
+  border: 2.5px solid #5b7cfa;
+}
+
+.lg-cap {
+  border: 3px solid #ef4757;
+}
+
 .friend-name {
   font-weight: 650;
   min-width: 0;
@@ -2155,10 +2282,6 @@ button {
 @media (max-width: 640px) {
   .app {
     padding: 12px 12px 40px;
-  }
-
-  .brand-sub {
-    display: none;
   }
 
   .board-card {

@@ -1,94 +1,20 @@
 /**
- * Раздел «Как играть» — интерактивные уроки-сцены.
+ * Контент раздела /how-to-play: те же 10 тем, что в LESSONS (lessons.ts), но
+ * после каждого нетривиального механизма — шаг 'practice': игроку дают
+ * НАСТОЯЩУЮ доску и просят сделать ход самому (реальными легальными ходами
+ * через движок), прежде чем открыть «Далее».
  *
- * Каждый урок = стартовая позиция + сценарий (script) из шагов, которые
- * проигрывает LessonPlayer (TutorialBoard.tsx): подсветки, стрелки, плашки-
- * пояснения, настоящие ходы с анимацией, панели выбора, эффекты эволюции,
- * шаха и мата. Все демонстрации соответствуют правилам B1–B8.
- *
- * ---------------------------------------------------------------
- * STORYBOARD (сценарии всех уроков)
- *
- *  1. Знакомство. Стартовая расстановка 10×8 → подсветка Петухов d1/g1/d8/g8 →
- *     плашки-пояснения. Конец: подводка к эволюции.
- *  2. Петух: только вперёд. Подсветка вертикали (точки) и запрещённых клеток
- *     (✕) → стрелка e4→e7 → плавный ход → плашка «назад пути нет».
- *  3. Петух: бок и взятие. Точки бокового шага, кольца диагоналей → стрелка →
- *     взятие e4×f5: Петух скользит, пешка растворяется → плашка «Взятие!».
- *  4. Взятие фигуры. Конь d4 бьёт слона e6: кольцо на цели, стрелка, ход,
- *     слон исчезает (fade+scale) → плашка.
- *  5. Зона эволюции. Зелёная зона рядов 6–8 → Конь d4→e6 заканчивает ход в
- *     зоне → плашка-событие «время эволюции».
- *  6. Эволюция: выбор формы. Конь входит в зону → открывается панель выбора
- *     (Дозорный/Ловчий) → выбор → вспышка-трансформация с кольцами →
- *     появляется форма со значком → плашка-событие.
- *  7. Бастион. Стрелки в обе стороны от короля → король f1→h1 и ладья j1→g1
- *     едут ОДНОВРЕМЕННО → плашка «одним ходом».
- *  8. Превращение пешки. Пешка e7→e8 → панель выбора из 5 фигур → выбор
- *     ферзя → эффект появления → плашка «превращение ≠ эволюция».
- *  9. Взятие на проходе. Чёрная пешка d7→d5 двойным ходом → подсветка
- *     «проскоченного» поля d6 → белая пешка e5→d6, чёрная пешка с d5
- *     растворяется → плашка «взятие на проходе».
- * 10. Шах и мат. Ферзь b4→b7 → пульс у короля + плашка «Шах!» → затемнение
- *     доски, золотая подсветка короля, крупная плашка «Мат» — партия окончена.
- * ---------------------------------------------------------------
+ * lessons.ts сознательно не редактируется (его позиции не экспортированы) —
+ * стартовые расстановки объявлены здесь заново теми же маленькими хелперами.
+ * ВАЖНО: в практических позициях есть оба короля — в отличие от демо-сцен,
+ * здесь работает настоящий legalMoves с проверкой королевской безопасности.
+ * Тексты про движение фигур сверены с Rules_Clarification_v1.0.md (B2/B3).
  */
 
-import type { Color, GameState, Move, Piece, PieceType } from '../../engine/types';
+import type { Color, Piece, PieceType } from '../../engine/types';
 import { sq, BOARD_SIZE } from '../../engine/board';
 import { createInitialState } from '../../engine';
-
-export type MarkKind = 'zone' | 'move' | 'capture' | 'focus' | 'no';
-export interface Mark {
-  sq: number;
-  kind: MarkKind;
-}
-export interface Bilingual {
-  ru: string;
-  en: string;
-}
-
-/** Шаг сценария урока. Каждый шаг длится dur мс (иначе — дефолт по типу). */
-export type TutStep =
-  | { t: 'caption'; text: Bilingual; style?: 'info' | 'event' | 'danger'; dur?: number }
-  | { t: 'marks'; marks: Mark[]; dur?: number }
-  | { t: 'arrow'; from: number; to: number; dur?: number }
-  | { t: 'clear'; dur?: number }
-  | {
-      t: 'move';
-      from: number;
-      to: number;
-      capture?: number;
-      rook?: { from: number; to: number };
-      dur?: number;
-    }
-  | { t: 'panel'; options: PieceType[]; kind: 'evolution' | 'promotion'; dur?: number }
-  | { t: 'pick'; index: number; dur?: number }
-  | { t: 'transform'; square: number; into: PieceType; dur?: number }
-  | { t: 'check'; square: number; dur?: number }
-  | { t: 'mate'; square: number; dur?: number }
-  | { t: 'pause'; dur: number }
-  // Шаг «сделай сам» для раздела /how-to-play: настоящая доска, реальные ходы
-  // движком. LESSONS этого файла такой шаг НЕ используют — поведение
-  // локального демо-режима не меняется ни в одном существующем сценарии.
-  | {
-      t: 'practice';
-      goal: Bilingual;
-      successCaption: Bilingual;
-      board: (Piece | null)[];
-      turn: Color;
-      /** Поле взятия на проходе, если сценарию нужно (урок e.p.). */
-      enPassant?: number | null;
-      check: (move: Move, before: GameState, after: GameState) => boolean;
-      dur?: number;
-    };
-
-export interface Lesson {
-  title: Bilingual;
-  text: Bilingual;
-  board: (Piece | null)[];
-  script: TutStep[];
-}
+import type { Lesson, TutStep, Mark, MarkKind } from './lessons';
 
 function empty(): (Piece | null)[] {
   return new Array<Piece | null>(BOARD_SIZE).fill(null);
@@ -105,7 +31,19 @@ function zoneMarks(ranks: number[]): Mark[] {
   return m;
 }
 
-/* ---------- Позиции уроков ---------- */
+/** Практическая позиция: базовая расстановка + оба короля по углам. */
+function withKings(
+  board: (Piece | null)[],
+  whiteKing = sq(9, 0),
+  blackKing = sq(9, 7),
+): (Piece | null)[] {
+  const b = board.slice();
+  b[whiteKing] = pc('K', 'white');
+  b[blackKing] = pc('K', 'black');
+  return b;
+}
+
+/* ---------- Демо-позиции (продублированы из lessons.ts) ---------- */
 
 const roosterForward = empty();
 roosterForward[sq(4, 3)] = pc('ROO', 'white');
@@ -142,10 +80,36 @@ mateBoard[sq(0, 7)] = pc('K', 'black');
 mateBoard[sq(1, 3)] = pc('Q', 'white');
 mateBoard[sq(2, 5)] = pc('K', 'white');
 
+/* ---------- Практические позиции (с королями) ---------- */
+
+// Короли по умолчанию: белый j1, чёрный j8 — далеко от места действия.
+const practiceRooster = withKings(roosterForward);
+const practiceRoosterCapture = withKings(roosterCapture);
+// Взятие конём: слон стоит на f5 (ВНЕ зоны эволюции — в демо-позиции он на
+// e6, но там реальный движок открыл бы окно выбора формы и смешал два урока);
+// короли расставлены так, чтобы диагональ слона не давала случайный шах.
+const practiceCaptureBase = empty();
+practiceCaptureBase[sq(3, 3)] = pc('N', 'white');
+practiceCaptureBase[sq(5, 4)] = pc('B', 'black');
+const practiceCapture = withKings(practiceCaptureBase, sq(0, 0), sq(9, 7));
+const practiceEvo = withKings(evoBoard);
+// Бастион: позиция урока уже содержит белого короля — добавляем только чёрного.
+const practiceCastle = castleBoard.slice();
+practiceCastle[sq(9, 7)] = pc('K', 'black');
+// Превращение: чёрный король подальше от e8, чтобы не мешать превращению.
+const practicePromo = withKings(promoBoard, sq(0, 0), sq(9, 7));
+// Взятие на проходе: чёрная пешка УЖЕ прыгнула d7→d5, право e.p. активно (d6).
+const practiceEp = empty();
+practiceEp[sq(4, 4)] = pc('P', 'white');
+practiceEp[sq(3, 4)] = { ...pc('P', 'black'), hasMoved: true };
+const practiceEpBoard = withKings(practiceEp, sq(9, 0), sq(0, 7));
+// Мат в один ход — позиция финального демо.
+const practiceMate = mateBoard.slice();
+
 /* ---------- Уроки ---------- */
 
-export const LESSONS: Lesson[] = [
-  // 1. Знакомство
+export const HOW_TO_PLAY_LESSONS: Lesson[] = [
+  // 1. Знакомство (без практики — вступление)
   {
     title: { ru: 'Добро пожаловать в Chess 2', en: 'Welcome to Chess 2' },
     text: {
@@ -159,11 +123,7 @@ export const LESSONS: Lesson[] = [
         text: { ru: 'Доска шире классической: 10×8', en: 'The board is wider than classic: 10×8' },
         dur: 1800,
       },
-      {
-        t: 'marks',
-        marks: marksOf([sq(3, 0), sq(6, 0), sq(3, 7), sq(6, 7)], 'focus'),
-        dur: 700,
-      },
+      { t: 'marks', marks: marksOf([sq(3, 0), sq(6, 0), sq(3, 7), sq(6, 7)], 'focus'), dur: 700 },
       {
         t: 'caption',
         text: { ru: 'Новая фигура — Петух (d1 и g1)', en: 'A new piece — the Rooster (d1 and g1)' },
@@ -173,16 +133,16 @@ export const LESSONS: Lesson[] = [
       {
         t: 'caption',
         text: {
-          ru: 'А ещё фигуры умеют эволюционировать — смотри дальше',
-          en: 'Pieces can also evolve — see the next lessons',
+          ru: 'Дальше каждый механизм ты попробуешь сам — на настоящей доске',
+          en: 'From here on you will try every mechanic yourself — on a real board',
         },
         style: 'event',
-        dur: 2200,
+        dur: 2400,
       },
     ],
   },
 
-  // 2. Петух: только вперёд
+  // 2. Петух: только вперёд + практика
   {
     title: { ru: 'Петух: рвётся вперёд', en: 'The Rooster charges forward' },
     text: {
@@ -208,14 +168,18 @@ export const LESSONS: Lesson[] = [
       { t: 'arrow', from: sq(4, 3), to: sq(4, 6), dur: 700 },
       { t: 'move', from: sq(4, 3), to: sq(4, 6), dur: 900 },
       {
-        t: 'caption',
-        text: { ru: 'Ход сделан — назад пути нет', en: 'The move is made — there is no way back' },
-        dur: 2000,
+        t: 'practice',
+        goal: { ru: 'Теперь сам: сходи Петухом вперёд', en: 'Your turn: move the Rooster forward' },
+        successCaption: { ru: 'Отлично! Назад пути нет', en: 'Great! There is no way back' },
+        board: practiceRooster,
+        turn: 'white',
+        check: (move, before) =>
+          before.board[move.from]?.type === 'ROO' && move.capture === undefined,
       },
     ],
   },
 
-  // 3. Петух: бок и взятие
+  // 3. Петух: бок и взятие + практика
   {
     title: { ru: 'Петух: бок и взятие', en: 'Rooster: sidestep and capture' },
     text: {
@@ -243,11 +207,19 @@ export const LESSONS: Lesson[] = [
       },
       { t: 'arrow', from: sq(4, 3), to: sq(5, 4), dur: 700 },
       { t: 'move', from: sq(4, 3), to: sq(5, 4), capture: sq(5, 4), dur: 1000 },
-      { t: 'caption', text: { ru: 'Взятие!', en: 'Captured!' }, style: 'event', dur: 1800 },
+      {
+        t: 'practice',
+        goal: { ru: 'Возьми Петухом пешку', en: 'Capture a pawn with the Rooster' },
+        successCaption: { ru: 'Взятие!', en: 'Captured!' },
+        board: practiceRoosterCapture,
+        turn: 'white',
+        check: (move, before) =>
+          before.board[move.from]?.type === 'ROO' && move.capture !== undefined,
+      },
     ],
   },
 
-  // 4. Взятие фигуры
+  // 4. Взятие фигуры + практика
   {
     title: { ru: 'Взятие фигуры', en: 'Capturing a piece' },
     text: {
@@ -266,14 +238,17 @@ export const LESSONS: Lesson[] = [
       { t: 'arrow', from: sq(3, 3), to: sq(4, 5), dur: 700 },
       { t: 'move', from: sq(3, 3), to: sq(4, 5), capture: sq(4, 5), dur: 1000 },
       {
-        t: 'caption',
-        text: { ru: 'Слон снят с доски', en: 'The bishop is removed from the board' },
-        dur: 1800,
+        t: 'practice',
+        goal: { ru: 'Возьми слона конём', en: 'Capture the bishop with your knight' },
+        successCaption: { ru: 'Слон снят с доски', en: 'The bishop is removed from the board' },
+        board: practiceCapture,
+        turn: 'white',
+        check: (move) => move.capture !== undefined,
       },
     ],
   },
 
-  // 5. Зона эволюции
+  // 5. Зона эволюции (без практики — подводка к уроку 6)
   {
     title: { ru: 'Зона эволюции', en: 'The evolution zone' },
     text: {
@@ -293,16 +268,16 @@ export const LESSONS: Lesson[] = [
       {
         t: 'caption',
         text: {
-          ru: 'Ход завершён в зоне — время эволюции!',
-          en: 'The move ended inside the zone — time to evolve!',
+          ru: 'Ход завершён в зоне — время эволюции! Сейчас попробуешь сам',
+          en: 'The move ended inside the zone — time to evolve! You will try it next',
         },
         style: 'event',
-        dur: 2200,
+        dur: 2400,
       },
     ],
   },
 
-  // 6. Эволюция: выбор формы
+  // 6. Эволюция: выбор формы + практика
   {
     title: { ru: 'Эволюция: выбор формы', en: 'Evolution: choose a form' },
     text: {
@@ -322,18 +297,20 @@ export const LESSONS: Lesson[] = [
       { t: 'pick', index: 0, dur: 1000 },
       { t: 'transform', square: sq(4, 5), into: 'N_OUTRIDER', dur: 1400 },
       {
-        t: 'caption',
-        text: {
-          ru: 'Дозорный! Конь теперь умеет и шагать по прямой',
-          en: 'Outrider! The knight can now also step orthogonally',
+        t: 'practice',
+        goal: {
+          ru: 'Заведи коня в зелёную зону и выбери форму',
+          en: 'Move the knight into the green zone and pick a form',
         },
-        style: 'event',
-        dur: 2400,
+        successCaption: { ru: 'Эволюция! Форма выбрана', en: 'Evolved! Form chosen' },
+        board: practiceEvo,
+        turn: 'white',
+        check: (move) => move.evolveTo !== undefined,
       },
     ],
   },
 
-  // 7. Бастион (рокировка)
+  // 7. Бастион + практика
   {
     title: { ru: 'Рокировка (Бастион)', en: 'Castling (Bastion)' },
     text: {
@@ -362,14 +339,17 @@ export const LESSONS: Lesson[] = [
         dur: 1100,
       },
       {
-        t: 'caption',
-        text: { ru: 'Король и ладья — одним ходом', en: 'King and rook — in a single move' },
-        dur: 2000,
+        t: 'practice',
+        goal: { ru: 'Сделай рокировку (в любую сторону)', en: 'Castle (either side)' },
+        successCaption: { ru: 'Король и ладья — одним ходом', en: 'King and rook — in a single move' },
+        board: practiceCastle,
+        turn: 'white',
+        check: (move) => move.special === 'castle-king' || move.special === 'castle-queen',
       },
     ],
   },
 
-  // 8. Превращение пешки
+  // 8. Превращение пешки + практика
   {
     title: { ru: 'Превращение пешки', en: 'Pawn promotion' },
     text: {
@@ -390,18 +370,20 @@ export const LESSONS: Lesson[] = [
       { t: 'pick', index: 0, dur: 1000 },
       { t: 'transform', square: sq(4, 7), into: 'Q', dur: 1300 },
       {
-        t: 'caption',
-        text: {
-          ru: 'Ферзь! Превращённая фигура не эволюционирует',
-          en: 'A queen! A promoted piece never evolves',
+        t: 'practice',
+        goal: { ru: 'Проведи пешку и выбери фигуру', en: 'Promote the pawn and pick a piece' },
+        successCaption: {
+          ru: 'Превращение! Такая фигура не эволюционирует',
+          en: 'Promoted! This piece never evolves',
         },
-        style: 'event',
-        dur: 2400,
+        board: practicePromo,
+        turn: 'white',
+        check: (move) => move.promotion !== undefined,
       },
     ],
   },
 
-  // 9. Взятие на проходе
+  // 9. Взятие на проходе + практика
   {
     title: { ru: 'Взятие на проходе', en: 'En passant' },
     text: {
@@ -425,15 +407,21 @@ export const LESSONS: Lesson[] = [
       { t: 'arrow', from: sq(4, 4), to: sq(3, 5), dur: 700 },
       { t: 'move', from: sq(4, 4), to: sq(3, 5), capture: sq(3, 4), dur: 1100 },
       {
-        t: 'caption',
-        text: { ru: 'Взятие на проходе!', en: 'En passant!' },
-        style: 'event',
-        dur: 2000,
+        t: 'practice',
+        goal: {
+          ru: 'Чёрная пешка только что прыгнула на d5. Возьми её на проходе',
+          en: 'The black pawn just jumped to d5. Capture it en passant',
+        },
+        successCaption: { ru: 'Взятие на проходе!', en: 'En passant!' },
+        board: practiceEpBoard,
+        turn: 'white',
+        enPassant: sq(3, 5),
+        check: (move) => move.special === 'enpassant',
       },
     ],
   },
 
-  // 10. Шах и мат
+  // 10. Шах и мат + финальная практика
   {
     title: { ru: 'Шах и мат', en: 'Check and checkmate' },
     text: {
@@ -451,13 +439,28 @@ export const LESSONS: Lesson[] = [
       { t: 'arrow', from: sq(1, 6), to: sq(0, 7), dur: 500 },
       { t: 'check', square: sq(0, 7), dur: 1200 },
       { t: 'caption', text: { ru: 'Шах!', en: 'Check!' }, style: 'danger', dur: 1600 },
-      { t: 'mate', square: sq(0, 7), dur: 600 },
       {
-        t: 'caption',
-        text: { ru: 'Мат. Партия окончена', en: 'Checkmate. The game is over' },
-        style: 'event',
-        dur: 2600,
+        t: 'practice',
+        goal: {
+          ru: 'Финальное упражнение: поставь мат в один ход',
+          en: 'Final exercise: deliver checkmate in one move',
+        },
+        successCaption: { ru: 'Мат! Обучение пройдено', en: 'Checkmate! Tutorial complete' },
+        board: practiceMate,
+        turn: 'white',
+        check: (_move, _before, after) => after.result === 'white' || after.result === 'black',
       },
     ],
   },
 ];
+
+/** Практический шаг урока (последний в script), если есть. */
+export function practiceOf(lesson: Lesson): Extract<TutStep, { t: 'practice' }> | null {
+  const last = lesson.script[lesson.script.length - 1];
+  return last && last.t === 'practice' ? last : null;
+}
+
+/** Урок без практического шага — для проигрывания в TutorialBoard. */
+export function demoOf(lesson: Lesson): Lesson {
+  return { ...lesson, script: lesson.script.filter((s) => s.t !== 'practice') };
+}

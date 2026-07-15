@@ -37,6 +37,10 @@ function stepDur(step: TutStep): number {
       return 2400;
     case 'pause':
       return 800;
+    case 'practice':
+      // В демо-плеере не проигрывается (шаг существует только для
+      // /how-to-play, где его обрабатывает своя страница).
+      return 0;
   }
 }
 

@@ -1,24 +1,24 @@
-import { useT } from '../i18n';
-
 /** Единый бренд «Chess 2 · ASCENT»: значок + логотип. Используется в шапке
- *  игры и на страницах входа/меню — логотип везде один и тот же. */
-export function Brand({ withSub = true }: { withSub?: boolean }) {
-  const t = useT();
+ *  игры и на страницах входа/меню — логотип везде один и тот же.
+ *
+ *  Знак — три восходящих пика: петушиный гребень (фирменная фигура — Петух)
+ *  и одновременно восхождение (ASCENT). Плоский, один цвет, читается на
+ *  24–32px. */
+export function Brand() {
   return (
     <div className="brand">
       <span className="brand-mark" aria-hidden>
         <svg viewBox="0 0 24 24" width="26" height="26">
           <path
-            d="M12 2l2.4 4.8L19 5.4l-1.6 4.8L21 13l-4.4 1.6.8 5-5.4-2-5.4 2 .8-5L3 13l3.6-2.8L5 5.4l4.6 1.4z"
+            d="M3 19.5 L6.2 11.5 L8.6 14.9 L11.4 6.6 L13.8 10.5 L17.2 2.9 L21 19.5 Z"
             fill="currentColor"
-            opacity="0.9"
+            opacity="0.95"
           />
         </svg>
       </span>
       <span className="brand-logo">
         Chess&nbsp;2<span className="brand-dot">·</span>ASCENT
       </span>
-      {withSub && <span className="brand-sub">{t('subtitle')}</span>}
     </div>
   );
 }

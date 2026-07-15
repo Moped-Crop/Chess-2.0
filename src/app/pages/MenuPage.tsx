@@ -49,6 +49,7 @@ export function MenuPage() {
   const items = [
     { to: '/play/local', title: t('menuLocal'), sub: t('menuLocalSub'), icon: '♟' },
     { to: '/friends?invite=1', title: t('menuOnline'), sub: t('menuOnlineSub'), icon: '⚔' },
+    { to: '/how-to-play', title: t('menuHowTo'), sub: t('menuHowToSub'), icon: '🎓' },
     { to: '/friends', title: t('menuFriends'), sub: t('menuFriendsSub'), icon: '👥' },
     { to: '/history', title: t('historyTitle'), sub: t('menuHistorySub'), icon: '📜' },
     { to: '/profile', title: t('menuProfile'), sub: t('menuProfileSub'), icon: '★' },
