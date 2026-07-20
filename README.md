@@ -1,105 +1,148 @@
 # Chess 2 — ASCENT
 
-Браузерная шахматная игра-вариант с онлайн-режимом. Отличия от классики:
+A browser chess variant with local and online play.
+**Live at [chess2-ascent.online](https://chess2-ascent.online/)**
 
-- Доска **10×8** (файлы `a–j`, ряды `1–8`).
-- Новая фигура **Петух** — рвётся только вперёд, не отступает.
-- Механика **Эволюции**: рабочая фигура (Конь/Слон/Ладья/Петух), завершив ход в дальней зоне соперника, один раз превращается в усиленную форму.
-- **Два режима**: локальная партия за одним устройством (hotseat) и **онлайн-партия 1×1 с другом** по приглашению — с аккаунтами, профилями и статистикой.
-
-В самой игре есть кнопка **«Как играть?»** — интерактивный тур по правилам Петуха и эволюции.
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-18-61dafb)](https://react.dev/)
+[![Node](https://img.shields.io/badge/Node-%E2%89%A520-5fa04e)](https://nodejs.org/)
 
 ---
 
-## Как запустить
+## What makes it Chess 2
 
-Нужен установленный **Node.js** (версия 20 или новее). Скачать: <https://nodejs.org> (кнопка LTS).
+| | |
+|---|---|
+| **A wider board** | 10 files × 8 ranks (`a–j`, `1–8`). More room to maneuver, and two extra pieces per side. |
+| **The Rooster** | A new piece that only threatens forward — it attacks along a forward ray and the two forward diagonals, but never sideways or backward. It advances; it does not cover its own retreat. |
+| **Evolution** | A Knight, Bishop, Rook, or Rooster that ends its move deep in enemy territory transforms once — permanently — into a stronger form. Seven forms in total, each a classic piece fused with an extra movement primitive. |
 
-### 1. Подготовка (один раз)
+Promotion and evolution are mutually exclusive: a freshly promoted piece can never evolve.
+
+The game ships with an interactive **How to Play** tour that teaches the Rooster
+and evolution on a real board with real engine moves — available without signing in.
+
+---
+
+## Features
+
+**Gameplay**
+- Complete Chess 2 rules: all pieces, the Rooster, evolution into 7 forms, castling
+  ("Bastion"), en passant, promotion, check/checkmate/stalemate, and every draw
+  condition (threefold repetition, 75-move rule, insufficient material).
+- Custom piece artwork, move/capture/evolution animations, legal-move highlights,
+  light and dark themes, Web Audio sound with a volume control.
+
+**Local play (hotseat)**
+Two players on one device. Clocks with presets, take-back, move list, autosave to
+`localStorage`, and JSON export/import of a game.
+
+**Online play (1v1 with a friend)**
+- Accounts with mandatory email verification, password recovery, and optional
+  TOTP two-factor authentication with backup codes.
+- Profiles with avatars and win/loss/draw statistics; a friend list with live
+  online status; invitations that carry the chosen time control.
+- Real-time move sync over Socket.IO, with **every move re-validated server-side
+  by the same engine** the client runs.
+- **Server-authoritative clocks** — the server owns the time, so a tab that
+  sleeps or lies cannot gain an advantage. Flagging ends the game on its own.
+- Resign, reconnect into a game in progress, and forfeit after a 90-second
+  disconnect.
+- **Game history** with a move-by-move replay viewer (arrow keys to step).
+
+---
+
+## Running it locally
+
+You need **Node.js 20 or newer** ([nodejs.org](https://nodejs.org), LTS button).
+
+### 1. Install (once)
 
 ```bash
 npm install
 ```
 
-Затем создай два файла в корне проекта (образец — `.env.example`):
+Then create two files in the project root — see `.env.example` for the full list:
 
-- `.env` — две строки: `DATABASE_URL=...` (строка подключения PostgreSQL, например с Railway; для пробы без базы подойдёт `DATABASE_URL=memory://`) и `JWT_SECRET=...` (любая длинная случайная строка).
-- `.env.server` — одна строка: `NODE_ENV=development`.
+- **`.env`** — at minimum `DATABASE_URL=` (a PostgreSQL connection string; use
+  `DATABASE_URL=memory://` to run against an in-memory database with no setup)
+  and `JWT_SECRET=` (any long random string).
+- **`.env.server`** — a single line: `NODE_ENV=development`.
 
-### 2. Запуск
+> `NODE_ENV` must live in `.env.server`, **not** `.env` — Vite reads `.env` and
+> would break the production React build.
+
+### 2. Run
 
 ```bash
-npm run dev:all   # одной командой: игра (:5173) + сервер (:3001)
+npm run dev:all   # game (:5173) + server (:3001) in one command
 ```
 
-Открой `http://localhost:5173/` в браузере. Останавливается по `Ctrl + C`.
+Open <http://localhost:5173/>. Stop with `Ctrl+C`.
 
-Можно и в два терминала: `npm run dev` (игра) и `npm run dev:server` (сервер).
+The local hotseat mode works without the server — `npm run dev` alone is enough.
 
-> Локальный режим «Играть на одном ПК» работает даже без сервера — достаточно `npm run dev`.
+### Commands
 
----
-
-## Команды
-
-| Команда | Что делает |
+| Command | What it does |
 |---|---|
-| `npm run dev:all` | Игра + сервер одной командой (разработка). |
-| `npm run dev` | Только фронтенд (локальная игра работает и без сервера). |
-| `npm run dev:server` | Только backend (Express + Socket.IO, порт 3001). |
-| `npm run migrate` | Применить миграции базы данных. |
-| `npm run build` | Проверка типов + сборка фронтенда в `dist/`. |
-| `npm start` | Продакшен: один процесс отдаёт `dist/`, API и сокеты. |
-| `npm test` | Все авто-тесты (движок, API, сокеты, БД). |
-| `npm run test:e2e` | Полный сквозной сценарий в браузере (Playwright). |
-| `npm run typecheck` | Проверка типов TypeScript (фронт + сервер). |
-| `npm run lint` | Проверка стиля кода. |
+| `npm run dev:all` | Frontend + backend together (development). |
+| `npm run dev` | Frontend only. |
+| `npm run dev:server` | Backend only (Express + Socket.IO, port 3001). |
+| `npm run migrate` | Apply database migrations. |
+| `npm run build` | Type-check, then build the frontend into `dist/`. |
+| `npm start` | Production: one process serves `dist/`, the API, and sockets. |
+| `npm test` | Unit and integration tests (engine, API, sockets). |
+| `npm run test:e2e` | Full browser scenario with two players (Playwright). |
+| `npm run typecheck` | TypeScript check, frontend and server. |
+| `npm run lint` | ESLint. |
 
 ---
 
-## Что реализовано
-
-- **Полные правила Chess 2** (движок): все фигуры, Петух, эволюция в 7 форм, рокировка (Бастион), взятие на проходе, превращение пешки, шах/мат/пат, ничьи (троекратное повторение, правило 75 ходов, недостаток материала).
-- **Играбельный интерфейс**: доска 10×8, авторские фигуры и модели эволюционных форм, анимации ходов/взятий/эволюции, подсветки, светлая и тёмная темы, звуковое оформление (Web Audio), настройка громкости.
-- **Локальный режим**: часы с пресетами, отмена хода, запись партии, автосейв, экспорт/импорт в JSON.
-- **Онлайн-режим**: регистрация и вход (JWT в httpOnly-cookie, CSRF-защита, rate limiting), профиль с аватаром и статистикой (победы/поражения/ничьи), друзья с онлайн-статусами, приглашение в партию, синхронизация ходов в реальном времени (Socket.IO), серверная валидация каждого хода тем же движком, сдача, восстановление партии после перезагрузки, техпоражение при разрыве > 90 с.
-- **Обучающий тур** по уникальным механикам.
-
----
-
-## Как устроен проект
+## How the project is built
 
 ```
 src/
-├── engine/   ЧИСТОЕ ЯДРО ПРАВИЛ — не зависит от React/браузера, легко тестируется
-└── app/      ИНТЕРФЕЙС (React + SVG): store/ (Zustand), components/, pages/,
-              api/ (REST-клиент), net/ (socket.io-client), clock/, tutorial/
-server/       BACKEND: Express + Socket.IO, PostgreSQL (pg), миграции,
-              gameEngine.ts импортирует движок НАПРЯМУЮ из src/engine
-tests/        авто-тесты движка, API (supertest) и сокетов — на pg-mem,
-              боевая база тестами не затрагивается
-e2e/          сквозной сценарий Playwright (два игрока, полная партия)
+├── engine/   PURE RULES CORE — no React, no DOM, no I/O. Deterministic and immutable.
+└── app/      UI (React + SVG): store/ (Zustand), components/, pages/,
+              api/ (REST client), net/ (socket.io-client), clock/, tutorial/
+server/       Express + Socket.IO, PostgreSQL (pg, plain-SQL migrations).
+              gameEngine.ts imports the engine directly from src/engine.
+tests/        Engine, API (supertest), and socket tests, all on pg-mem —
+              the production database is never touched by tests.
+e2e/          End-to-end Playwright scenario (two players, a full game).
+docs/         Design documents, rule specifications, and audits (in Russian).
 ```
 
-**Главные правила архитектуры:**
-- `app/` зависит от `engine/`, но `engine/` никогда не импортирует React/DOM.
-- Сервер валидирует ходы **тем же движком**, что и клиент, — отдельной реализации правил нет.
-- Онлайн — второй «контроллер ходов» поверх того же стора: локальный режим не изменился.
+**Architectural rules that are not negotiable:**
 
-Окончательные правила игры зафиксированы в `Rules_Clarification_v1.0.md` (B1–B8) — это источник правды. Памятка для ассистента — `CLAUDE.md`.
+- `app/` depends on `engine/`; `engine/` never imports React or the DOM.
+- The server validates moves with **the same engine** as the client. There is no
+  second implementation of the rules, and there must never be one.
+- Online play is a second "move controller" on top of the same store — adding it
+  did not change local play.
+- Clock math is likewise shared: `server/lib/serverClock.ts` reuses the pure
+  functions from `src/app/clock/clock.ts`.
+
+The final rules of the game are frozen in
+[`docs/Rules_Clarification_v1.0.md`](docs/Rules_Clarification_v1.0.md) (sections
+B1–B8) — that document is the source of truth. `CLAUDE.md` is the working memo
+for the AI assistant on this project. Deployment is described in
+[`DEPLOY.md`](DEPLOY.md).
 
 ---
 
-## Что НЕ входит (на будущее)
+## Not included (possible future work)
 
-- Матчмейкинг со случайными соперниками, ИИ-оппонент, рейтинги, часы в онлайн-партиях.
-- Тонкая **балансировка** чисел — настраивается на плейтесте.
-- Расширенный FEN/PGN-экспорт, PWA-оффлайн.
+- Matchmaking with random opponents, an AI opponent, ratings.
+- Fine balance tuning — to be settled by playtesting.
+- Extended FEN / PGN export, PWA offline support.
 
 ---
 
-## Стек
+## Stack
 
 TypeScript (strict) · Vite · React 18 · React Router · SVG · Zustand ·
-Express · Socket.IO · PostgreSQL (`pg`, миграции чистым SQL) · zod · helmet ·
-bcryptjs + JWT · Vitest + Supertest + pg-mem · Playwright · ESLint + Prettier.
+Express · Socket.IO · PostgreSQL (`pg`) · zod · helmet · bcryptjs + JWT ·
+Resend (email) · Vitest + Supertest + pg-mem · Playwright · ESLint + Prettier ·
+deployed on Railway.
