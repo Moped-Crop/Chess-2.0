@@ -1,61 +1,65 @@
-# Деплой на Railway
+# Deploying to Railway
 
-Проект — **один процесс**: `npm start` собирает и раздаёт фронтенд (`dist/`),
-API (`/api/*`) и Socket.IO с одного порта. Railway ставит зависимости,
-выполняет `npm run build`, затем `npm start` (см. `railway.json`). Миграции
-базы применяются автоматически при старте сервера.
+The project runs as **a single process**: `npm start` serves the built frontend
+(`dist/`), the API (`/api/*`), and Socket.IO from one port. Railway installs
+dependencies, runs `npm run build`, then `npm start` (see `railway.json`).
+Database migrations are applied automatically on server startup.
 
-## Переменные окружения в Railway
+## Environment variables
 
-В сервисе (Variables) должны быть заданы:
+Set these in the Railway service (Variables tab):
 
-| Переменная | Значение |
+| Variable | Value |
 |---|---|
-| `DATABASE_URL` | ссылка на плагин Postgres: `${{Postgres.DATABASE_URL}}` |
-| `JWT_SECRET` | длинная случайная строка (не публиковать) |
+| `DATABASE_URL` | Reference to the Postgres plugin: `${{Postgres.DATABASE_URL}}` |
+| `JWT_SECRET` | A long random string. Never publish it. |
 | `NODE_ENV` | `production` |
-| `NPM_CONFIG_PRODUCTION` | `false` (иначе не ставятся devDependencies и сборка падает: `tsc: not found`) |
-| `RESEND_API_KEY` | ключ Resend (API Keys, начинается с `re_`). Почта идёт через HTTP-API Resend, т.к. Railway режет SMTP-порты |
-| `MAIL_FROM` | `"Chess 2 · ASCENT" <noreply@ваш-домен>` — адрес на подтверждённом в Resend домене |
-| `APP_URL` | публичный домен сайта, напр. `https://chess2-production.up.railway.app` (нужен для ссылок в письмах; НЕ localhost) |
-| `TOTP_ENCRYPTION_KEY` | 32-байтовый ключ в hex (64 символа) для шифрования секретов 2FA |
+| `NPM_CONFIG_PRODUCTION` | `false` — otherwise devDependencies are skipped and the build fails with `tsc: not found` |
+| `RESEND_API_KEY` | Resend API key (starts with `re_`). Email goes over Resend's HTTP API because Railway blocks SMTP ports. |
+| `MAIL_FROM` | `"Chess 2 · ASCENT" <noreply@your-domain>` — an address on a domain verified in Resend |
+| `APP_URL` | The public site URL, e.g. `https://chess2-ascent.online` (used for links in emails; never `localhost`) |
+| `TOTP_ENCRYPTION_KEY` | 32-byte key in hex (64 characters) that encrypts 2FA secrets |
 
-**`TOTP_ENCRYPTION_KEY` должен совпадать с локальным `.env`** — иначе после
-деплоя расшифровка уже включённых у пользователей секретов 2FA сломается.
-Сгенерировать новый (если нужно):
-`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
+**`TOTP_ENCRYPTION_KEY` must match your local `.env`.** If it differs, already
+enrolled users' 2FA secrets can no longer be decrypted after a deploy. Generate a
+fresh one with:
 
-`PORT` Railway задаёт сам — трогать не нужно. Если используете **публичный**
-адрес базы (не внутренний `*.railway.internal`) и он требует TLS — добавьте
-`DATABASE_SSL=1`.
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
 
-## Способ 1 — через GitHub (рекомендуется)
+Railway sets `PORT` itself — leave it alone. If you connect to the **public**
+database address (not the internal `*.railway.internal` one) and it requires TLS,
+add `DATABASE_SSL=1`.
 
-1. Создайте пустой репозиторий на GitHub.
-2. Локально привяжите и запушьте:
-   ```bash
-   git remote add origin https://github.com/<вы>/<репозиторий>.git
-   git push -u origin master
-   ```
-3. В Railway: **New → Deploy from GitHub repo**, выберите репозиторий.
-4. Добавьте плагин **PostgreSQL** (если ещё не добавлен) и задайте переменные
-   окружения из таблицы выше.
-5. Railway соберёт и запустит проект. Каждый `git push` — новый деплой.
+## Option 1 — via GitHub (recommended)
 
-## Способ 2 — через Railway CLI (без GitHub)
+1. Push the repository to GitHub.
+2. In Railway: **New → Deploy from GitHub repo**, and pick the repository.
+3. Add the **PostgreSQL** plugin if it isn't there yet, and set the variables above.
+4. Railway builds and starts the project. Every `git push` triggers a new deploy.
+
+## Option 2 — via Railway CLI (no GitHub)
 
 ```bash
 npm i -g @railway/cli
-railway login          # откроется браузер для входа
-railway link           # выбрать существующий проект
-railway up             # собрать и задеплоить текущую папку
+railway login          # opens a browser to sign in
+railway link           # select an existing project
+railway up             # build and deploy the current folder
 ```
 
-Переменные окружения задаются в дашборде Railway так же, как в способе 1.
+Environment variables are set in the Railway dashboard exactly as in option 1.
 
-## После деплоя
+## After deploying
 
-- Откройте выданный Railway домен — должна открыться игра.
-- Проверка живости: `https://<домен>/api/health` → `{"ok":true,"db":"ok"}`.
-- Первую регистрацию делайте прямо на сайте; база и таблицы создаются
-  миграцией при первом старте.
+- Open the Railway-issued domain — the game should load.
+- Health check: `https://<domain>/api/health` → `{"ok":true,"db":"ok"}`.
+- Register your first account on the site itself; the database and tables are
+  created by the migration on first startup.
+
+## Domain and email
+
+The production site is served from `chess2-ascent.online` — a custom Railway
+domain proxied through Cloudflare, which also holds the domain's nameservers.
+The same domain is verified in Resend so that transactional email
+(verification, password reset, 2FA) is sent from an address on it.

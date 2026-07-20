@@ -16,4 +16,4 @@ playwright-report
 test-results
 
 # локальные настройки Claude Code
-.claude/settings.local.json
+.claude/
