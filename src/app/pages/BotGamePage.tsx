@@ -10,6 +10,7 @@ import { BotSettingsTab } from '../components/tabs/BotSettingsTab';
 import { MovesTab } from '../components/tabs/MovesTab';
 import { EvolutionModal } from '../components/EvolutionModal';
 import { GameOverModal } from '../components/GameOverModal';
+import { EvolutionReference } from '../components/EvolutionReference';
 import { Brand } from '../components/Brand';
 import { useGameStore } from '../store/gameStore';
 import { useBotWorker } from '../bot/useBotWorker';
@@ -43,6 +44,7 @@ export function BotGamePage() {
   const setBotThinking = useGameStore((s) => s.setBotThinking);
 
   const [tab, setTab] = useState<SideTab>('game');
+  const [showReference, setShowReference] = useState(false);
   /** Идёт ли расчёт прямо сейчас. Ref, а не состояние: перерисовка не должна
    *  прерывать уже отправленный в воркер запрос. */
   const thinkingRef = useRef(false);
@@ -101,6 +103,9 @@ export function BotGamePage() {
       <header className="topbar">
         <Brand />
         <div className="topbar-actions">
+          <button className="btn btn-ghost" onClick={() => setShowReference(true)}>
+            📖 {t('htpReferenceShort')}
+          </button>
           <Link className="btn btn-ghost" to="/menu">
             ← {t('menuBack')}
           </Link>
@@ -148,6 +153,26 @@ export function BotGamePage() {
 
       <EvolutionModal />
       <GameOverModal />
+
+      {showReference && (
+        // Справочник под рукой прямо в партии: подсмотреть ход Петуха или
+        // формы, не бросая игру. Клик по фону закрывает — как в других окнах.
+        <div className="overlay" onClick={() => setShowReference(false)}>
+          <div className="modal reference-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="tut-head">
+              <h3>{t('htpReference')}</h3>
+            </div>
+            <EvolutionReference />
+            <button
+              className="btn btn-primary btn-block"
+              style={{ marginTop: 16 }}
+              onClick={() => setShowReference(false)}
+            >
+              {t('close')}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

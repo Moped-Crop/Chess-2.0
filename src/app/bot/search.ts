@@ -27,7 +27,7 @@ import {
   legalMoves,
   positionKey,
 } from '../../engine';
-import { PIECE_VALUE, evaluate, evaluateMaterial } from './evaluate';
+import { PIECE_VALUE, evaluate } from './evaluate';
 
 /** Оценка мата. Не Infinity: конечное число безопасно складывать и сравнивать. */
 const MATE = 1_000_000;
@@ -315,31 +315,48 @@ class Search {
   }
 }
 
+/** Разброс, внутри которого ходы считаются «примерно равными» (сотые пешки). */
+const EASY_TOLERANCE = 40;
+/** Вероятность, что лёгкий бот вовсе не заметит взятий на этом ходу. */
+const EASY_MISS_CHANCE = 0.35;
+
 /**
- * Лёгкий уровень: без перебора вообще. Смотрит на один ход вперёд и только на
- * материал, затем случайно выбирает среди ходов в пределах полпешки от лучшего.
+ * Лёгкий уровень: без перебора, ровно один полуход вперёд — но оценка ПОЛНАЯ,
+ * а не только материал.
  *
- * Так бот не видит двухходовых ловушек (его легко поймать тактикой), но и не
- * зевает фигуру просто так — играет неровно, а не бессмысленно.
+ * Почему полная: по одному материалу все тихие ходы равны нулю, и бот выбирал
+ * из них наугад — со стороны это выглядело бессмысленной перестановкой фигур.
+ * С позиционной частью он занимает центр, выводит фигуры и толкает пешки, то
+ * есть играет осмысленно — просто не видит дальше своего носа и ловится любой
+ * двухходовой тактикой.
+ *
+ * Почему иногда «не видит» взятий: считая на один ход, бот забирал ВСЁ, что
+ * плохо лежит, и для лёгкого уровня оказывался неприятно цепким. Теперь примерно
+ * в трети случаев взятия из рассмотрения выпадают — он проходит мимо
+ * подставленной фигуры, как это делает новичок.
  */
 export function searchEasy(state: GameState, random: () => number = Math.random): SearchResult {
   const started = Date.now();
   const moves = legalMoves(state);
   if (moves.length === 0) return { move: null, score: 0, depth: 0, nodes: 0, elapsedMs: 0 };
 
-  const TOLERANCE = 50; // полпешки
-  let best = -Infinity;
-  const scored = moves.map((m) => {
-    const next = applyMove(state, m);
-    // evaluateMaterial считает с точки зрения СТОРОНЫ, ЧЕЙ ХОД, а после
-    // применения хода это уже соперник, — поэтому знак меняется.
-    const score = -evaluateMaterial(next);
-    if (score > best) best = score;
-    return { m, score };
-  });
+  const scored = moves.map((m) => ({
+    m,
+    // evaluate считает с точки зрения СТОРОНЫ, ЧЕЙ ХОД, а после применения
+    // хода это уже соперник, — поэтому знак меняется.
+    score: -evaluate(applyMove(state, m)),
+  }));
 
-  const candidates = scored.filter((x) => x.score >= best - TOLERANCE);
-  const pick = candidates[Math.floor(random() * candidates.length)] ?? scored[0];
+  const quiet = scored.filter((x) => x.m.capture === undefined);
+  // Если единственный выход из-под шаха — взятие, «не заметить» его нельзя:
+  // ходить-то надо, поэтому при пустом списке тихих ходов берём все.
+  const pool = quiet.length > 0 && random() < EASY_MISS_CHANCE ? quiet : scored;
+
+  let best = -Infinity;
+  for (const x of pool) if (x.score > best) best = x.score;
+  const candidates = pool.filter((x) => x.score >= best - EASY_TOLERANCE);
+  const pick = candidates[Math.floor(random() * candidates.length)] ?? pool[0];
+
   return {
     move: pick.m,
     score: pick.score,

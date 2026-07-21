@@ -2586,6 +2586,25 @@ button {
   }
 }
 
+/* Справочник фигур, открытый прямо из партии. */
+.reference-modal {
+  width: 900px;
+  max-width: 94vw;
+}
+
+/* Карточка новой фигуры (Петух) — выделена, она не эволюция. */
+.evo-ref-card.evo-ref-new {
+  border-color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+
+.evo-ref-new .evo-ref-base {
+  color: var(--accent-strong);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
 /* --- Индикатор раздумья бота --- */
 .bot-thinking {
   display: flex;

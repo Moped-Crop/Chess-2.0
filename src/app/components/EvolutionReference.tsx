@@ -58,12 +58,36 @@ function marks(both: [number, number][], moveOnly: [number, number][] = [], capt
 }
 
 interface FormCard {
-  base: PieceType;
+  /** Базовая фигура, из которой растёт форма. Нет у самого Петуха. */
+  base?: PieceType;
   form: PieceType;
   marks: MiniMark[];
+  /** Пометить как новую фигуру Chess 2 (не эволюцию). */
+  isNew?: boolean;
 }
 
 const CARDS: FormCard[] = [
+  // Петух до эволюции (B3): вперёд — луч (ход и взятие), вбок — шаг без
+  // взятия, две диагонали-вперёд — только взятие, назад — ничего.
+  // Стоит первым: это новая фигура, её правила игроку нужнее всего.
+  {
+    form: 'ROO',
+    isNew: true,
+    marks: marks(
+      [
+        [0, 1],
+        [0, 2],
+      ],
+      [
+        [1, 0],
+        [-1, 0],
+      ],
+      [
+        [1, 1],
+        [-1, 1],
+      ],
+    ),
+  },
   { base: 'N', form: 'N_OUTRIDER', marks: marks([...KNIGHT, ...WAZIR]) },
   { base: 'N', form: 'N_HUNTER', marks: marks([...KNIGHT, ...FERZ]) },
   { base: 'B', form: 'B_PRELATE', marks: marks([...DIAG_RAYS, ...WAZIR]) },
@@ -82,6 +106,7 @@ const CARDS: FormCard[] = [
 
 /** Мини-доска 5×5: форма в центре, отметки её движения вокруг. */
 function MiniDiagram({ card }: { card: FormCard }) {
+  const piece = card.form;
   const size = N * CELL;
   const cells = [];
   for (let x = 0; x < N; x++) {
@@ -106,7 +131,12 @@ function MiniDiagram({ card }: { card: FormCard }) {
           <circle key={i} cx={cx(m.dx)} cy={cy(m.dy)} r={CELL * 0.17} fill="#5b7cfa" opacity={0.85} />
         ),
       )}
-      <PieceView piece={{ type: card.form, color: 'white', hasMoved: true, evolved: true }} x={2 * CELL} y={2 * CELL} size={CELL} />
+      <PieceView
+        piece={{ type: piece, color: 'white', hasMoved: true, evolved: card.base !== undefined }}
+        x={2 * CELL}
+        y={2 * CELL}
+        size={CELL}
+      />
     </svg>
   );
 }
@@ -121,14 +151,20 @@ export function EvolutionReference() {
     <div className="evo-ref">
       <div className="evo-ref-grid">
         {CARDS.map((c) => (
-          <div key={c.form} className="evo-ref-card card">
+          <div key={c.form} className={`evo-ref-card card ${c.isNew ? 'evo-ref-new' : ''}`}>
             <div className="evo-ref-head">
-              <MiniPiece type={c.base} color="white" size={26} />
-              <span className="evo-ref-arrow" aria-hidden>→</span>
+              {c.base !== undefined && (
+                <>
+                  <MiniPiece type={c.base} color="white" size={26} />
+                  <span className="evo-ref-arrow" aria-hidden>→</span>
+                </>
+              )}
               <MiniPiece type={c.form} color="white" size={30} />
               <span className="evo-ref-names">
                 <b>{nameOf(c.form)}</b>
-                <span className="evo-ref-base">{nameOf(c.base)}</span>
+                <span className="evo-ref-base">
+                  {c.base !== undefined ? nameOf(c.base) : t('refNewPiece')}
+                </span>
               </span>
             </div>
             <MiniDiagram card={c} />

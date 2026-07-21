@@ -61,6 +61,7 @@ export const PIECE_NAME_EN: Record<PieceType, string> = {
 
 /** Подсказка по движению формы — показывается при выборе эволюции. */
 export const FORM_HINT: Partial<Record<PieceType, string>> = {
+  ROO: 'Только вперёд: луч по прямой, взятие с диагоналей; вбок — шаг без взятия',
   N_OUTRIDER: 'Конь + шаг по прямой',
   N_HUNTER: 'Конь + шаг по диагонали',
   B_PRELATE: 'Слон + шаг по прямой',
@@ -72,6 +73,7 @@ export const FORM_HINT: Partial<Record<PieceType, string>> = {
 
 /** Английские подсказки по движению форм. */
 export const FORM_HINT_EN: Partial<Record<PieceType, string>> = {
+  ROO: 'Forward only: straight ray, diagonal captures; sideways step without capture',
   N_OUTRIDER: 'Knight + 1 step orthogonally',
   N_HUNTER: 'Knight + 1 step diagonally',
   B_PRELATE: 'Bishop + 1 step orthogonally',
