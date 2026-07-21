@@ -39,10 +39,15 @@ import {
   type ClockState,
 } from '../clock/clock';
 import { emitMove } from '../net/socket';
+import type { BotDifficulty } from '../bot/protocol';
 
 export type Orientation = 'white' | 'black' | 'auto';
 export type UiTheme = 'dark' | 'light';
-export type GameMode = 'local' | 'online' | 'replay' | 'tutorial';
+export type GameMode = 'local' | 'online' | 'replay' | 'tutorial' | 'bot';
+
+// Уровень сложности объявлен в bot/protocol.ts (его же читает воркер) —
+// здесь только реэкспорт, чтобы тип не расползся в двух определениях.
+export type { BotDifficulty };
 
 /** Причина завершения онлайн-партии ('game' — мат/пат/ничья по правилам). */
 export type OnlineEndReason = 'game' | 'resign' | 'abandon' | 'timeout';
@@ -124,9 +129,15 @@ interface GameStore {
   // --- Онлайн-режим (mode='local' — всё поведение прежнее) ---
   mode: GameMode;
   onlineGameId: number | null;
+  /** Цвет, которым играет человек: и в онлайне, и в партии с ботом. */
   myColor: Color | null;
   opponent: OpponentInfo | null;
   onlineEndReason: OnlineEndReason | null;
+
+  // --- Партия с ботом (mode='bot': чистый клиент, сервера не касается) ---
+  botDifficulty: BotDifficulty | null;
+  /** Бот считает ход — доска на это время не принимает кликов. */
+  botThinking: boolean;
 
   /** Применить ПОДТВЕРЖДЁННЫЙ ход (общий путь локального и онлайн-режима). */
   applyConfirmedMove: (move: Move) => void;
@@ -159,6 +170,17 @@ interface GameStore {
   }) => void;
   /** Выйти из повтора и вернуть локальный автосейв. */
   exitReplay: () => void;
+
+  // --- Партия с ботом ---
+  /** Начать партию с ботом: свежая позиция, человек играет humanColor. */
+  startBotGame: (humanColor: Color, difficulty: BotDifficulty) => void;
+  /** Выйти из партии с ботом и вернуть локальный автосейв. */
+  exitBotGame: () => void;
+  /** Пометить, что бот сейчас считает ход. */
+  setBotThinking: (thinking: boolean) => void;
+  /** Человек сдаётся боту: победа достаётся цвету бота. */
+  resignBotGame: () => void;
+
   // --- Практика обучения (mode='tutorial': реальные ходы на настоящей доске) ---
   /** Начать упражнение: позиция + чей ход (+ поле e.p., если сценарию нужно). */
   startTutorialPractice: (payload: {
@@ -302,6 +324,8 @@ export const useGameStore = create<GameStore>((set, get) => {
     myColor: null,
     opponent: null,
     onlineEndReason: null,
+    botDifficulty: null,
+    botThinking: false,
 
     applyConfirmedMove: (move) => commit(move),
 
@@ -374,6 +398,8 @@ export const useGameStore = create<GameStore>((set, get) => {
         myColor,
         opponent,
         onlineEndReason: reason ?? null,
+        botDifficulty: null,
+        botThinking: false,
         // Своя сторона всегда снизу; настройка ориентации не перезаписывается.
         orientation: myColor,
       });
@@ -425,6 +451,8 @@ export const useGameStore = create<GameStore>((set, get) => {
         myColor: null,
         opponent: null,
         onlineEndReason: null,
+        botDifficulty: null,
+        botThinking: false,
       });
     },
 
@@ -460,6 +488,8 @@ export const useGameStore = create<GameStore>((set, get) => {
         myColor: null,
         opponent: null,
         onlineEndReason: null,
+        botDifficulty: null,
+        botThinking: false,
         orientation: 'white',
       });
     },
@@ -485,6 +515,8 @@ export const useGameStore = create<GameStore>((set, get) => {
         myColor: null,
         opponent: null,
         onlineEndReason: null,
+        botDifficulty: null,
+        botThinking: false,
         orientation: (loadSettings().orientation as Orientation) ?? 'white',
       });
     },
@@ -546,7 +578,83 @@ export const useGameStore = create<GameStore>((set, get) => {
         myColor: null,
         opponent: null,
         onlineEndReason: null,
+        botDifficulty: null,
+        botThinking: false,
         orientation: (loadSettings().orientation as Orientation) ?? 'white',
+      });
+    },
+
+    startBotGame: (humanColor, difficulty) => {
+      // Свежая партия целиком в памяти: на сервер не уходит и в локальный
+      // автосейв не пишется (commit сохраняет только mode='local').
+      const g = createInitialState();
+      set({
+        game: g,
+        past: [],
+        selected: null,
+        legal: legalMoves(g),
+        pending: null,
+        lastMove: null,
+        lastAction: null,
+        lastMoveApplied: null,
+        clock: null, // партии с ботом играются без часов
+        moveLog: [],
+        captures: [],
+        mode: 'bot',
+        onlineGameId: null,
+        myColor: humanColor,
+        opponent: null,
+        onlineEndReason: null,
+        botDifficulty: difficulty,
+        botThinking: false,
+        // Своя сторона всегда снизу — как в онлайне; настройка ориентации
+        // при этом не перезаписывается (persistSettings не вызываем).
+        orientation: humanColor,
+      });
+    },
+
+    exitBotGame: () => {
+      if (get().mode !== 'bot') return;
+      // Возвращаем локальный автосейв — как exitReplay/exitTutorialPractice.
+      const saved = loadGame();
+      const g = saved?.game ?? createInitialState();
+      set({
+        game: g,
+        past: [],
+        selected: null,
+        legal: g.result === 'ongoing' ? legalMoves(g) : [],
+        pending: null,
+        lastMove: null,
+        lastAction: null,
+        clock: null,
+        moveLog: saved?.moveLog ?? [],
+        captures: saved?.captures ?? [],
+        mode: 'local',
+        onlineGameId: null,
+        myColor: null,
+        opponent: null,
+        onlineEndReason: null,
+        botDifficulty: null,
+        botThinking: false,
+        orientation: (loadSettings().orientation as Orientation) ?? 'white',
+      });
+    },
+
+    setBotThinking: (thinking) => set({ botThinking: thinking }),
+
+    resignBotGame: () => {
+      const { mode, game, myColor, muted } = get();
+      if (mode !== 'bot' || game.result !== 'ongoing' || myColor === null) return;
+      // Сдача человека = победа цвета бота. Партия с ботом никуда не
+      // отправляется, поэтому результат просто ставится локально.
+      const winner: GameResult = myColor === 'white' ? 'black' : 'white';
+      if (!muted) victorySound();
+      set({
+        game: { ...game, result: winner },
+        legal: [],
+        selected: null,
+        pending: null,
+        botThinking: false,
       });
     },
 
@@ -571,6 +679,8 @@ export const useGameStore = create<GameStore>((set, get) => {
         myColor: null,
         opponent: null,
         onlineEndReason: null,
+        botDifficulty: null,
+        botThinking: false,
         orientation: (loadSettings().orientation as Orientation) ?? 'white',
       });
     },
@@ -646,11 +756,13 @@ export const useGameStore = create<GameStore>((set, get) => {
     },
 
     clickSquare: (s) => {
-      const { game, selected, legal, pending, mode, myColor } = get();
+      const { game, selected, legal, pending, mode, myColor, botThinking } = get();
       if (mode === 'replay') return; // просмотр истории: доска не кликается
       if (pending || game.result !== 'ongoing') return;
       // Онлайн: ходить можно только своим цветом и только в свою очередь.
       if (mode === 'online' && game.turn !== myColor) return;
+      // Бот: не ходить за бота и не мешать, пока он считает.
+      if (mode === 'bot' && (game.turn !== myColor || botThinking)) return;
 
       if (selected !== null) {
         // Дедупликация по смыслу хода: движок не должен выдавать дубли, но если

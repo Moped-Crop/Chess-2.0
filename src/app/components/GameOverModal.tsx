@@ -80,6 +80,18 @@ export function GameOverModal() {
             >
               {t('toMenu')}
             </button>
+          ) : mode === 'bot' ? (
+            // newGame() создал бы ЛОКАЛЬНУЮ партию и записал её в автосейв —
+            // в режиме бота ведём на выбор сложности, как и кнопка во вкладке.
+            <button
+              className="btn btn-primary btn-lg btn-block"
+              onClick={() => {
+                setOpen(false);
+                navigate('/play/bot/setup');
+              }}
+            >
+              {t('botNewGame')}
+            </button>
           ) : (
             <button
               className="btn btn-primary btn-lg btn-block"
