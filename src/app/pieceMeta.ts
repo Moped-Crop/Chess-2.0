@@ -59,9 +59,13 @@ export const PIECE_NAME_EN: Record<PieceType, string> = {
   ROO_PHOENIX: 'Phoenix',
 };
 
-/** Подсказка по движению формы — показывается при выборе эволюции. */
+/**
+ * Подсказка по движению ФОРМЫ — показывается при выборе эволюции.
+ * Только эволюционные формы: этот же словарь читает окно превращения пешки,
+ * и подписи у базовых фигур там были бы лишним шумом. Описания базовых фигур
+ * для справочника — в PIECE_HINT ниже.
+ */
 export const FORM_HINT: Partial<Record<PieceType, string>> = {
-  ROO: 'Только вперёд: луч по прямой, взятие с диагоналей; вбок — шаг без взятия',
   N_OUTRIDER: 'Конь + шаг по прямой',
   N_HUNTER: 'Конь + шаг по диагонали',
   B_PRELATE: 'Слон + шаг по прямой',
@@ -73,7 +77,6 @@ export const FORM_HINT: Partial<Record<PieceType, string>> = {
 
 /** Английские подсказки по движению форм. */
 export const FORM_HINT_EN: Partial<Record<PieceType, string>> = {
-  ROO: 'Forward only: straight ray, diagonal captures; sideways step without capture',
   N_OUTRIDER: 'Knight + 1 step orthogonally',
   N_HUNTER: 'Knight + 1 step diagonally',
   B_PRELATE: 'Bishop + 1 step orthogonally',
@@ -81,4 +84,17 @@ export const FORM_HINT_EN: Partial<Record<PieceType, string>> = {
   R_RAM: 'Rook + 2-square orthogonal jump',
   R_ANCHOR: 'Rook + 1 diagonal step (no capture)',
   ROO_PHOENIX: 'Can move backward; captures only forward',
+};
+
+/**
+ * Описание движения БАЗОВОЙ фигуры — только для справочника.
+ * Классические фигуры игроку объяснять не нужно, поэтому здесь один Петух:
+ * это единственная фигура Chess 2, которой нет в обычных шахматах.
+ */
+export const PIECE_HINT: Partial<Record<PieceType, string>> = {
+  ROO: 'Только вперёд: луч по прямой, взятие с диагоналей; вбок — шаг без взятия',
+};
+
+export const PIECE_HINT_EN: Partial<Record<PieceType, string>> = {
+  ROO: 'Forward only: straight ray, diagonal captures; sideways step without capture',
 };
