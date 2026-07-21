@@ -9,7 +9,14 @@
 import type { PieceType } from '../../engine/types';
 import { PieceView } from './Piece';
 import { MiniPiece } from './MiniPiece';
-import { PIECE_NAME, PIECE_NAME_EN, FORM_HINT, FORM_HINT_EN } from '../pieceMeta';
+import {
+  PIECE_NAME,
+  PIECE_NAME_EN,
+  FORM_HINT,
+  FORM_HINT_EN,
+  PIECE_HINT,
+  PIECE_HINT_EN,
+} from '../pieceMeta';
 import { useT, useLang } from '../i18n';
 
 const CELL = 30;
@@ -145,7 +152,11 @@ export function EvolutionReference() {
   const t = useT();
   const lang = useLang();
   const nameOf = (pt: PieceType) => (lang === 'en' ? PIECE_NAME_EN[pt] : PIECE_NAME[pt]);
-  const hintOf = (pt: PieceType) => (lang === 'en' ? FORM_HINT_EN[pt] : FORM_HINT[pt]) ?? '';
+  // Формы описаны в FORM_HINT (его же читает окно выбора эволюции), базовые
+  // фигуры — в PIECE_HINT (только для справочника).
+  const hintOf = (pt: PieceType) =>
+    (lang === 'en' ? (FORM_HINT_EN[pt] ?? PIECE_HINT_EN[pt]) : (FORM_HINT[pt] ?? PIECE_HINT[pt])) ??
+    '';
 
   return (
     <div className="evo-ref">
