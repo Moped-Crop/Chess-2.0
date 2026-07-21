@@ -57,9 +57,27 @@ Environment variables are set in the Railway dashboard exactly as in option 1.
 - Register your first account on the site itself; the database and tables are
   created by the migration on first startup.
 
+## Project naming
+
+Railway hands out a random project name (`vivacious-connection` and the like).
+Rename it under **Settings → General → Project Name**; the service has its own
+name under **service → Settings → Service Name**. Nothing is tied to either —
+the GitHub link, the environment variables, the database and the custom domain
+all survive a rename.
+
+One thing a rename does **not** touch: the deployment records already published
+to GitHub. Railway creates them through the GitHub Deployments API with the
+environment named `<project> / <environment>`, and GitHub has no way to rename an
+environment after the fact. To clear an old name from the repository's
+Deployments tab, delete the stale environment in **repository Settings →
+Environments** and push once — Railway recreates it under the current name.
+
 ## Domain and email
 
 The production site is served from `chess2-ascent.online` — a custom Railway
 domain proxied through Cloudflare, which also holds the domain's nameservers.
 The same domain is verified in Resend so that transactional email
 (verification, password reset, 2FA) is sent from an address on it.
+
+`APP_URL` must point at the public domain: it is what the links in outgoing
+email are built from.
