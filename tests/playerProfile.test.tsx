@@ -35,6 +35,22 @@ const BOB: PlayerCard = {
 
 const EMPTY_FRIENDS: FriendsList = { friends: [], incoming: [], outgoing: [] };
 
+/** Партия Боба чёрными против Кэрол — для блока истории на его профиле. */
+const BOB_GAMES = {
+  games: [
+    {
+      id: 42,
+      opponent: { username: 'carol', displayName: 'Кэрол', avatarBase64: null },
+      playerColor: 'black',
+      result: 'black',
+      winReason: 'game',
+      timeControlId: '5+3',
+      finishedAt: '2026-07-01T10:00:00.000Z',
+    },
+  ],
+  hasMore: false,
+};
+
 const bobEntry = (friendshipId: number) => ({
   friendshipId,
   user: { id: 2, username: 'bob', displayName: 'Боб', avatarBase64: null, totpEnabled: false },
@@ -60,6 +76,10 @@ function mockNetwork(player: PlayerCard | 'not_found', friends: () => FriendsLis
         return json(200, { ok: true, friendshipId: 9 });
       }
       if (url === '/api/csrf') return json(200, { csrfToken: 'test-csrf' });
+      // История игрока — проверяется ДО карточки, иначе бы совпал её префикс.
+      if (url.startsWith('/api/players/') && url.includes('/games')) {
+        return json(200, BOB_GAMES);
+      }
       if (url.startsWith('/api/players/')) {
         return player === 'not_found'
           ? json(404, { error: 'not_found' })
@@ -149,6 +169,23 @@ describe('PlayerProfilePage', () => {
 
     expect(await screen.findByText(/Уже в друзьях/)).toBeTruthy();
     expect(posted).toEqual([{ url: '/api/friends/accept', body: { friendshipId: 5 } }]);
+  });
+
+  it("shows the player's games, judged from THEIR side of the board", async () => {
+    mockNetwork(BOB, () => EMPTY_FRIENDS);
+    renderAt('/players/bob');
+
+    expect(await screen.findByText('Партии игрока')).toBeTruthy();
+    // Боб играл чёрными и партия закончилась 'black' — для него это победа,
+    // хотя смотрит на неё Алиса.
+    expect(screen.getByText('Победа')).toBeTruthy();
+    expect(screen.getByText('Кэрол')).toBeTruthy();
+    // Повтор открывается «от Боба»: доска его стороной, назад — в его профиль.
+    expect(document.querySelector('.history-open')?.getAttribute('href')).toBe(
+      '/history/42?from=bob',
+    );
+    // Соперник по той партии — тоже кликабелен.
+    expect(screen.getByText('Кэрол').closest('a')?.getAttribute('href')).toBe('/players/carol');
   });
 
   it('deleted account → stub card without stats or relation block', async () => {

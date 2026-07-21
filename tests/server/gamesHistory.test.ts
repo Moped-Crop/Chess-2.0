@@ -121,15 +121,30 @@ describe('GET /api/games/:id', () => {
     expect(r.body.players.black.username).toBe('bob');
   });
 
-  it('rejects a non-participant with 404 (as if the game does not exist)', async () => {
+  it('lets an outsider replay a FINISHED game (profiles show game history)', async () => {
     const alice = await registerUser(ctx, 'alice');
     const bob = await registerUser(ctx, 'bob');
     const mallory = await registerUser(ctx, 'mallory');
-    const id = await insertGame(alice.id, bob.id);
+    const id = await insertGame(alice.id, bob.id, { moves: [E2E4] });
 
     const r = await mallory.agent.get(`/api/games/${id}`);
-    expect(r.status).toBe(404);
-    expect(r.body.error).toBe('not_found');
+    expect(r.status).toBe(200);
+    expect(r.body.moves).toEqual([E2E4]);
+    // Своего цвета у стороннего зрителя нет — доска по умолчанию белыми вниз.
+    expect(r.body.myColor).toBe('white');
+  });
+
+  it('hides an ONGOING game from an outsider (no watching a live game)', async () => {
+    const alice = await registerUser(ctx, 'alice');
+    const bob = await registerUser(ctx, 'bob');
+    const mallory = await registerUser(ctx, 'mallory');
+    const id = await insertGame(alice.id, bob.id, { status: 'active', result: null, winReason: null });
+
+    const outsider = await mallory.agent.get(`/api/games/${id}`);
+    expect(outsider.status).toBe(404);
+    expect(outsider.body.error).toBe('not_found');
+    // Участнику своя идущая партия по-прежнему доступна.
+    expect((await alice.agent.get(`/api/games/${id}`)).status).toBe(200);
   });
 
   it('requires authentication and validates the id', async () => {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { apiPlayer, type PlayerCard } from '../api/players';
+import { apiPlayer, apiPlayerGames, type PlayerCard } from '../api/players';
 import { apiFriends, apiFriendRequest, apiFriendAccept, apiFriendDecline } from '../api/friends';
 import { ApiError } from '../api/client';
 import { useT, type StrKey } from '../i18n';
@@ -9,6 +9,7 @@ import { PageShell } from './PageShell';
 import { Avatar } from './MenuPage';
 import { friendErrorKey } from './FriendsPage';
 import { StatsGrid } from '../components/StatsGrid';
+import { GamesList, type GameRow } from '../components/GamesList';
 
 /** Отношение текущего пользователя к просматриваемому игроку. */
 type Relation =
@@ -35,6 +36,11 @@ export function PlayerProfilePage() {
   const [error, setError] = useState<StrKey | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const [games, setGames] = useState<GameRow[]>([]);
+  const [gamesPage, setGamesPage] = useState(1);
+  const [gamesMore, setGamesMore] = useState(false);
+  const [gamesLoading, setGamesLoading] = useState(true);
+
   // Свой ник — это редактируемый профиль, а не read-only копия себя самого.
   useEffect(() => {
     if (isSelf) navigate('/profile', { replace: true });
@@ -46,6 +52,9 @@ export function PlayerProfilePage() {
     setCard(null);
     setRelation(null);
     setError(null);
+    setGames([]);
+    setGamesPage(1);
+    setGamesLoading(true);
     apiPlayer(username)
       .then((c) => {
         if (!cancelled) setCard(c);
@@ -85,6 +94,27 @@ export function PlayerProfilePage() {
     if (isSelf || !card || card.deleted) return;
     void refreshRelation();
   }, [isSelf, card, refreshRelation]);
+
+  // История партий игрока — грузится только у живого аккаунта.
+  useEffect(() => {
+    if (isSelf || !card || card.deleted) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await apiPlayerGames(username, gamesPage);
+        if (cancelled) return;
+        setGames((prev) => (gamesPage === 1 ? res.games : [...prev, ...res.games]));
+        setGamesMore(res.hasMore);
+      } catch {
+        /* временный сбой сети — оставляем прежний список */
+      } finally {
+        if (!cancelled) setGamesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isSelf, card, username, gamesPage]);
 
   async function act(fn: () => Promise<unknown>) {
     setBusy(true);
@@ -178,6 +208,18 @@ export function PlayerProfilePage() {
 
           <div className="card profile-card">
             <StatsGrid stats={card.stats} />
+          </div>
+
+          <div className="card friends-card">
+            <h3 className="section-title">{t('playerGamesTitle')}</h3>
+            <GamesList
+              games={games}
+              loading={gamesLoading}
+              hasMore={gamesMore}
+              onMore={() => setGamesPage((p) => p + 1)}
+              emptyText={t('playerNoGames')}
+              from={card.username}
+            />
           </div>
         </>
       )}

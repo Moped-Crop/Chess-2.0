@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { Color, GameState, Piece } from '../../engine/types';
 import {
   createInitialState,
@@ -13,6 +13,7 @@ import { Board } from '../components/Board';
 import { MovesTab } from '../components/tabs/MovesTab';
 import { Brand } from '../components/Brand';
 import { useGameStore } from '../store/gameStore';
+import { useAuthStore } from '../store/authStore';
 import { apiGameDetail, type GameDetail } from '../api/games';
 import { presetById } from '../clock/clock';
 import { useT, useLang } from '../i18n';
@@ -35,6 +36,12 @@ export function GameReplayPage() {
   const lang = useLang();
   const navigate = useNavigate();
 
+  // ?from=<ник> — партия открыта из профиля этого игрока: доску разворачиваем
+  // его стороной вниз, а «назад» возвращает в его профиль, а не в свою историю.
+  const [search] = useSearchParams();
+  const from = search.get('from');
+
+  const me = useAuthStore((s) => s.user);
   const loadReplayFrame = useGameStore((s) => s.loadReplayFrame);
   const stepReplayForward = useGameStore((s) => s.stepReplayForward);
   const stepReplayBackward = useGameStore((s) => s.stepReplayBackward);
@@ -43,10 +50,13 @@ export function GameReplayPage() {
   const [detail, setDetail] = useState<GameDetail | null>(null);
   const [idx, setIdx] = useState(0);
 
-  // Загрузка партии; чужая/несуществующая — назад в список истории.
+  /** Куда возвращает «назад» — в профиль игрока или в свою историю. */
+  const backTo = from ? `/players/${from}` : '/history';
+
+  // Загрузка партии; недоступная/несуществующая — назад, откуда пришли.
   useEffect(() => {
     if (!Number.isInteger(id) || id <= 0) {
-      navigate('/history', { replace: true });
+      navigate(backTo, { replace: true });
       return;
     }
     let cancelled = false;
@@ -57,13 +67,13 @@ export function GameReplayPage() {
         setDetail(d);
         setIdx(d.moves.length); // по умолчанию — финальная позиция
       } catch {
-        if (!cancelled) navigate('/history', { replace: true });
+        if (!cancelled) navigate(backTo, { replace: true });
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [id, navigate]);
+  }, [id, navigate, backTo]);
 
   // Все позиции партии считаются один раз — той же логикой, что startOnlineGame.
   const frames = useMemo<Frames | null>(() => {
@@ -111,10 +121,16 @@ export function GameReplayPage() {
             }
           : null,
     });
-    // Своя сторона снизу (как в онлайн-партии); настройка не перезаписывается —
-    // exitReplay вернёт сохранённую ориентацию.
-    useGameStore.setState({ orientation: detail.myColor });
-  }, [detail, frames, loadReplayFrame]);
+    // Снизу — сторона того, чью партию смотрим: своя в своей истории, а при
+    // заходе из чужого профиля — сторона хозяина профиля. Настройка не
+    // перезаписывается — exitReplay вернёт сохранённую ориентацию.
+    const bottom = from
+      ? detail.players.black.username === from
+        ? 'black'
+        : 'white'
+      : detail.myColor;
+    useGameStore.setState({ orientation: bottom });
+  }, [detail, frames, loadReplayFrame, from]);
 
   // При уходе со страницы — вернуть локальный автосейв.
   useEffect(() => exitReplay, [exitReplay]);
@@ -188,15 +204,15 @@ export function GameReplayPage() {
     reasonText = mate ? t('reasonMate') : '';
   }
 
-  // Имя соперника ведёт на его профиль — задел под матчмейкинг, где сыгранная
-  // партия может быть единственной ниточкой к незнакомому игроку. Своё имя
-  // остаётся простым текстом.
-  const oppColor: Color = detail.myColor === 'white' ? 'black' : 'white';
+  // Имя ведёт на профиль игрока — задел под матчмейкинг, где сыгранная партия
+  // может быть единственной ниточкой к незнакомому игроку. Своё имя остаётся
+  // простым текстом; в чужой партии (её открыли из профиля) ссылками
+  // становятся оба имени — там оба игрока посторонние.
   const players = detail.players;
 
   function playerName(color: Color) {
     const p = players[color];
-    if (color !== oppColor) return p.displayName;
+    if (p.username === me?.username) return p.displayName;
     return (
       <Link className="replay-player-link" to={`/players/${p.username}`}>
         {p.displayName}
@@ -218,8 +234,8 @@ export function GameReplayPage() {
       <header className="topbar">
         <Brand />
         <div className="topbar-actions">
-          <Link className="btn btn-ghost" to="/history">
-            ← {t('historyTitle')}
+          <Link className="btn btn-ghost" to={backTo}>
+            ← {t(from ? 'playerProfileTitle' : 'historyTitle')}
           </Link>
         </div>
       </header>

@@ -9,21 +9,7 @@ import type pg from 'pg';
 import type { Move } from '../../src/engine/types';
 import type { Env } from '../env';
 import { requireAuth, type AuthedRequest } from '../middleware/auth';
-
-const PAGE_SIZE = 20;
-
-interface HistoryRow {
-  id: number;
-  result: string | null;
-  win_reason: string | null;
-  time_control_id: string | null;
-  finished_at: Date | string | null;
-  white_id: number;
-  black_id: number;
-  username: string;
-  display_name: string;
-  avatar_base64: string | null;
-}
+import { listFinishedGames } from '../lib/gameHistory';
 
 export function gamesRouter(pool: pg.Pool, env: Env): Router {
   const router = Router();
@@ -34,44 +20,27 @@ export function gamesRouter(pool: pg.Pool, env: Env): Router {
     try {
       const uid = req.userId!;
       const page = Math.max(1, Number(req.query.page) || 1);
-      const offset = (page - 1) * PAGE_SIZE;
-      // LIMIT на одну строку больше страницы — так узнаём hasMore без COUNT.
-      const r = await pool.query(
-        `SELECT g.id, g.result, g.win_reason, g.time_control_id, g.finished_at,
-                g.white_id, g.black_id,
-                u.username, u.display_name, u.avatar_base64
-         FROM games g
-         JOIN users u
-           ON u.id = CASE WHEN g.white_id = $1 THEN g.black_id ELSE g.white_id END
-         WHERE (g.white_id = $1 OR g.black_id = $1) AND g.status = 'finished'
-         ORDER BY g.finished_at DESC
-         LIMIT $2 OFFSET $3`,
-        [uid, PAGE_SIZE + 1, offset],
-      );
-      const rows = (r.rows as HistoryRow[]).slice(0, PAGE_SIZE);
+      const { games, hasMore } = await listFinishedGames(pool, uid, page);
+      // В своей истории цвет игрока — это «мой цвет»; имя поля не меняем,
+      // чтобы не ломать уже работающий фронтенд.
       res.json({
-        games: rows.map((g) => ({
-          id: g.id,
-          opponent: {
-            username: g.username,
-            displayName: g.display_name,
-            avatarBase64: g.avatar_base64,
-          },
-          myColor: g.white_id === uid ? 'white' : 'black',
-          result: g.result,
-          winReason: g.win_reason,
-          timeControlId: g.time_control_id,
-          finishedAt: g.finished_at,
-        })),
-        hasMore: r.rows.length > PAGE_SIZE,
+        games: games.map(({ playerColor, ...g }) => ({ ...g, myColor: playerColor })),
+        hasMore,
       });
     } catch (e) {
       next(e);
     }
   });
 
-  /** Партия целиком для повтора — только участнику. Чужая партия отвечает
-   *  тем же 404, что и несуществующая (не палим сам факт её существования). */
+  /**
+   * Партия целиком для повтора.
+   *
+   * ЗАВЕРШЁННАЯ партия открыта любому вошедшему пользователю: профиль игрока
+   * показывает его историю, и она должна открываться (так же устроены lichess
+   * и chess.com). ИДУЩАЯ партия по-прежнему видна только участникам — иначе
+   * посторонний мог бы следить за живой игрой и подсказывать сопернику.
+   * Недоступная партия отвечает тем же 404, что и несуществующая.
+   */
   router.get('/:id', auth, async (req: AuthedRequest, res, next) => {
     try {
       const uid = req.userId!;
@@ -98,7 +67,8 @@ export function gamesRouter(pool: pg.Pool, env: Env): Router {
             finished_at: Date | string | null;
           }
         | undefined;
-      if (!g || (g.white_id !== uid && g.black_id !== uid)) {
+      const isPlayer = !!g && (g.white_id === uid || g.black_id === uid);
+      if (!g || (!isPlayer && g.status !== 'finished')) {
         res.status(404).json({ error: 'not_found' });
         return;
       }
@@ -120,7 +90,9 @@ export function gamesRouter(pool: pg.Pool, env: Env): Router {
         result: g.result,
         winReason: g.win_reason,
         timeControlId: g.time_control_id,
-        myColor: g.white_id === uid ? 'white' : 'black',
+        // Для стороннего зрителя своего цвета нет — доска по умолчанию белыми
+        // вниз; страница повтора при заходе из профиля развернёт её сама.
+        myColor: g.black_id === uid ? 'black' : 'white',
         players: { white: pub(g.white_id), black: pub(g.black_id) },
         finishedAt: g.finished_at,
       });
