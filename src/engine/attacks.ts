@@ -98,6 +98,109 @@ export function sliderTargets(
 }
 
 /**
+ * Обход атакуемых клеток БЕЗ создания массива.
+ *
+ * Зачем: проверка шаха вызывается для каждого хода-кандидата (фильтр B1), то
+ * есть десятки тысяч раз в секунду при работе бота. Собирать ради неё массив
+ * клеток на каждую фигуру, а потом искать в нём одну — расточительно: обход с
+ * досрочным выходом делает ту же работу без единой аллокации.
+ *
+ * visit возвращает true, чтобы прервать обход. Функция возвращает true, если
+ * обход был прерван.
+ *
+ * ВАЖНО: геометрия описана здесь ОДИН раз — attacksFrom построен на этом же
+ * обходе. Двух определений правил быть не должно.
+ */
+type AttackVisitor = (s: Square) => boolean;
+
+function visitLeaper(from: Square, offsets: readonly Offset[], visit: AttackVisitor): boolean {
+  for (const [df, dr] of offsets) {
+    const t = offset(from, df, dr);
+    if (t !== null && visit(t)) return true;
+  }
+  return false;
+}
+
+function visitSlider(
+  from: Square,
+  dirs: readonly Offset[],
+  board: (Piece | null)[],
+  visit: AttackVisitor,
+): boolean {
+  for (const [df, dr] of dirs) {
+    let t = offset(from, df, dr);
+    while (t !== null) {
+      if (visit(t)) return true;
+      if (board[t] !== null) break; // первая занятая клетка под боем, дальше стоп
+      t = offset(t, df, dr);
+    }
+  }
+  return false;
+}
+
+export function forEachAttack(
+  piece: Piece,
+  from: Square,
+  board: (Piece | null)[],
+  visit: AttackVisitor,
+): boolean {
+  const dr = forwardDir(piece.color);
+  switch (piece.type) {
+    // --- базовые ---
+    case 'K':
+      return visitLeaper(from, KING_STEPS, visit);
+    case 'N':
+      return visitLeaper(from, KNIGHT, visit);
+    case 'B':
+      return visitSlider(from, DIAGONALS, board, visit);
+    case 'R':
+      return visitSlider(from, ORTHOGONALS, board, visit);
+    case 'Q':
+      return visitSlider(from, QUEEN_DIRS, board, visit);
+    case 'P':
+      // Пешка бьёт только 2 диагонали-вперёд.
+      return visitLeaper(from, [
+        [-1, dr],
+        [1, dr],
+      ], visit);
+    case 'ROO': {
+      // B3: forward-луч до первой занятой включительно + 2 диагонали-вперёд.
+      let t = offset(from, 0, dr);
+      while (t !== null) {
+        if (visit(t)) return true;
+        if (board[t] !== null) break;
+        t = offset(t, 0, dr);
+      }
+      return visitLeaper(from, [
+        [-1, dr],
+        [1, dr],
+      ], visit);
+    }
+    // --- эволюционные формы (B2) ---
+    case 'N_OUTRIDER':
+      return visitLeaper(from, [...KNIGHT, ...WAZIR], visit);
+    case 'N_HUNTER':
+      return visitLeaper(from, [...KNIGHT, ...FERZ], visit);
+    case 'B_PRELATE':
+      return (
+        visitSlider(from, DIAGONALS, board, visit) || visitLeaper(from, WAZIR, visit)
+      );
+    case 'B_ZEALOT':
+      return visitSlider(from, DIAGONALS, board, visit) || visitLeaper(from, ALFIL, visit);
+    case 'R_RAM':
+      return visitSlider(from, ORTHOGONALS, board, visit) || visitLeaper(from, DABBABA, visit);
+    case 'R_ANCHOR':
+      return visitSlider(from, ORTHOGONALS, board, visit); // Ferz move-only НЕ атакует (B2)
+    case 'ROO_PHOENIX':
+      return visitLeaper(from, [
+        [0, dr],
+        [-1, dr],
+        [1, dr],
+      ], visit); // forward1 + 2 диагонали-вперёд
+  }
+}
+
+/**
  * Атаки Петуха (B3): forward-луч до первой занятой включительно + 2 диагонали-
  * вперёд на 1. Бок и назад НЕ атакуют. «Вперёд» — по цвету владельца.
  */
@@ -124,46 +227,15 @@ export function roosterAttacks(from: Square, color: Color, board: (Piece | null)
  * типы (B3) и эволюционные формы (B2). Используется для детекции шаха и контроля.
  */
 export function attacksFrom(piece: Piece, from: Square, board: (Piece | null)[]): Square[] {
-  const dr = forwardDir(piece.color);
-  const pawnLike: Offset[] = [
-    [-1, dr],
-    [1, dr],
-  ];
-  switch (piece.type) {
-    // --- базовые ---
-    case 'K':
-      return leaperTargets(from, KING_STEPS);
-    case 'N':
-      return leaperTargets(from, KNIGHT);
-    case 'B':
-      return sliderTargets(from, DIAGONALS, board);
-    case 'R':
-      return sliderTargets(from, ORTHOGONALS, board);
-    case 'Q':
-      return sliderTargets(from, QUEEN_DIRS, board);
-    case 'P':
-      return leaperTargets(from, pawnLike); // пешка бьёт только 2 диагонали-вперёд
-    case 'ROO':
-      return roosterAttacks(from, piece.color, board);
-    // --- эволюционные формы (B2) ---
-    case 'N_OUTRIDER':
-      return leaperTargets(from, [...KNIGHT, ...WAZIR]);
-    case 'N_HUNTER':
-      return leaperTargets(from, [...KNIGHT, ...FERZ]);
-    case 'B_PRELATE':
-      return [...sliderTargets(from, DIAGONALS, board), ...leaperTargets(from, WAZIR)];
-    case 'B_ZEALOT':
-      return uniqueSquares([...sliderTargets(from, DIAGONALS, board), ...leaperTargets(from, ALFIL)]);
-    case 'R_RAM':
-      return uniqueSquares([
-        ...sliderTargets(from, ORTHOGONALS, board),
-        ...leaperTargets(from, DABBABA),
-      ]);
-    case 'R_ANCHOR':
-      return sliderTargets(from, ORTHOGONALS, board); // Ferz move-only НЕ атакует (B2)
-    case 'ROO_PHOENIX':
-      return leaperTargets(from, [[0, dr], [-1, dr], [1, dr]]); // forward1 + 2 диагонали-вперёд
-  }
+  const out: Square[] = [];
+  forEachAttack(piece, from, board, (s) => {
+    out.push(s);
+    return false; // не прерываем — нужен полный список
+  });
+  // Составные формы (слайдер + прыжок) достигают части клеток двумя способами:
+  // Ревнитель по чистой диагонали — и лучом, и Alfil-прыжком, Таран — лучом и
+  // Dabbaba. Без дедупликации UI получил бы два одинаковых хода.
+  return piece.type === 'B_ZEALOT' || piece.type === 'R_RAM' ? uniqueSquares(out) : out;
 }
 
 /** Атакована ли клетка target хотя бы одной фигурой цвета `by`. */
@@ -174,7 +246,9 @@ export function isSquareAttackedBy(
 ): boolean {
   for (let s = 0; s < board.length; s++) {
     const p = board[s];
-    if (p && p.color === by && attacksFrom(p, s, board).includes(target)) {
+    // Обход с досрочным выходом: как только цель найдена, дальше не смотрим —
+    // и ни одного промежуточного массива не создаётся.
+    if (p !== null && p.color === by && forEachAttack(p, s, board, (t) => t === target)) {
       return true;
     }
   }

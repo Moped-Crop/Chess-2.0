@@ -9,7 +9,7 @@ import type { Color, GameState, Move, Piece, Square } from './types';
 import { opposite } from './board';
 import { isSquareAttackedBy } from './attacks';
 import { generatePseudoLegal } from './moveGen';
-import { applyMove } from './apply';
+import { boardAfterMove } from './apply';
 
 /** Индекс клетки короля данного цвета, либо null. */
 export function findKing(board: (Piece | null)[], color: Color): Square | null {
@@ -26,11 +26,16 @@ export function isKingInCheck(board: (Piece | null)[], color: Color): boolean {
   return king !== null && isSquareAttackedBy(board, king, opposite(color));
 }
 
-/** Легальные ходы: псевдо-легальные, после которых свой король не под боем (B1). */
+/**
+ * Легальные ходы: псевдо-легальные, после которых свой король не под боем (B1).
+ *
+ * Берём только расстановку фигур (boardAfterMove), а не полное состояние: права
+ * рокировки, поле e.p. и счётчики на то, под боем ли король, не влияют, а
+ * строить их для каждого из десятков ходов-кандидатов — чистые расходы.
+ */
 export function legalMoves(state: GameState): Move[] {
   const mover = state.turn;
-  return generatePseudoLegal(state).filter((m) => {
-    const next = applyMove(state, m);
-    return !isKingInCheck(next.board, mover);
-  });
+  return generatePseudoLegal(state).filter(
+    (m) => !isKingInCheck(boardAfterMove(state.board, m), mover),
+  );
 }

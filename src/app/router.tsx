@@ -21,6 +21,8 @@ import { OnlineGamePage } from './pages/OnlineGamePage';
 import { GameHistoryPage } from './pages/GameHistoryPage';
 import { GameReplayPage } from './pages/GameReplayPage';
 import { HowToPlayPage } from './pages/HowToPlayPage';
+import { BotSetupPage } from './pages/BotSetupPage';
+import { BotGamePage } from './pages/BotGamePage';
 import { InviteLayer } from './components/InviteLayer';
 import { useAuthStore } from './store/authStore';
 import { useGameStore } from './store/gameStore';
@@ -115,6 +117,9 @@ export function AppRouter() {
         }
       />
       <Route path="/play/local" element={<App />} />
+      {/* Партия с ботом — целиком в браузере, сервер ей не нужен. */}
+      <Route path="/play/bot/setup" element={<BotSetupPage />} />
+      <Route path="/play/bot" element={<BotGamePage />} />
       {/* Обучение доступно и без логина — ничего серверного ему не нужно. */}
       <Route path="/how-to-play" element={<HowToPlayPage />} />
       <Route
