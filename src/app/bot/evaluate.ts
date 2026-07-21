@@ -107,16 +107,6 @@ export function materialFor(board: (Piece | null)[], color: Color): number {
 }
 
 /**
- * Только материал, с точки зрения стороны, чей ход. Используется лёгким уровнем
- * — он специально не должен видеть ничего, кроме размена.
- */
-export function evaluateMaterial(state: GameState): number {
-  const me = state.turn;
-  const them: Color = me === 'white' ? 'black' : 'white';
-  return materialFor(state.board, me) - materialFor(state.board, them);
-}
-
-/**
  * Полная оценка: материал + центр + продвижение пешек + подвижность +
  * прикрытие короля. Знак — с точки зрения стороны, чей сейчас ход.
  *

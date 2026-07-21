@@ -1,43 +1,18 @@
-import { useGameStore, type Orientation } from '../../store/gameStore';
-import { useT } from '../../i18n';
 import { LanguageField, BoardThemeField, SoundFields } from './settingsFields';
 
 /**
- * Вкладка «Настройки» в партии с ботом: язык, ориентация доски, тема и звук.
- * Контроля времени нет — партии с ботом играются без часов.
+ * Вкладка «Настройки» в партии с ботом: язык, тема доски и звук.
+ *
+ * Ни контроля времени (партии с ботом играются без часов), ни ориентации
+ * доски — как и в онлайне, свой цвет всегда снизу, соперник сверху. Выбор
+ * ориентации осмыслен только в игре за одним устройством, где доску по
+ * очереди видят оба игрока.
  */
 export function BotSettingsTab() {
-  const t = useT();
-  const orientation = useGameStore((s) => s.orientation);
-  const setOrientation = useGameStore((s) => s.setOrientation);
-
-  const ORIENTATIONS: { id: Orientation; label: string }[] = [
-    { id: 'white', label: t('whiteBottom') },
-    { id: 'black', label: t('blackBottom') },
-    { id: 'auto', label: t('autoFlip') },
-  ];
-
   return (
     <div className="tab-panel">
       <LanguageField />
-
-      <div className="field">
-        <span className="field-label">{t('boardOrientation')}</span>
-        <div className="segmented segmented-block">
-          {ORIENTATIONS.map((o) => (
-            <button
-              key={o.id}
-              className={orientation === o.id ? 'active' : ''}
-              onClick={() => setOrientation(o.id)}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
       <BoardThemeField />
-
       <SoundFields />
     </div>
   );

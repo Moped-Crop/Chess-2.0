@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { applyMove, computeResult, sq } from '../src/engine';
-import { PIECE_VALUE, evaluate, evaluateMaterial } from '../src/app/bot/evaluate';
+import { applyMove, computeResult, createInitialState, legalMoves, sq } from '../src/engine';
+import { PIECE_VALUE, evaluate, materialFor } from '../src/app/bot/evaluate';
 import { searchEasy, searchHard, searchMedium } from '../src/app/bot/search';
 import { emptyBoard, makePiece, makeState } from './helpers';
 
@@ -15,8 +15,8 @@ describe('оценка позиции', () => {
     board[sq(5, 0)] = makePiece('K', 'white');
     board[sq(5, 7)] = makePiece('K', 'black');
     board[sq(0, 3)] = makePiece('R', 'white');
-    expect(evaluateMaterial(makeState(board, 'white'))).toBe(PIECE_VALUE.R);
-    expect(evaluateMaterial(makeState(board, 'black'))).toBe(-PIECE_VALUE.R);
+    expect(materialFor(board, 'white')).toBe(PIECE_VALUE.R);
+    expect(materialFor(board, 'black')).toBe(0);
   });
 
   it('оценка симметрична: та же позиция чужими глазами даёт противоположный знак', () => {
@@ -103,6 +103,40 @@ describe('поиск', () => {
     const b = searchEasy(state, () => 0);
     expect(a.move).toEqual(b.move);
     expect(a.move).not.toBeNull();
+  });
+
+  /** Беззащитный чёрный ферзь под боем белой ладьи. */
+  function hangingQueen() {
+    const board = emptyBoard();
+    board[sq(5, 0)] = makePiece('K', 'white', { hasMoved: true });
+    board[sq(5, 7)] = makePiece('K', 'black', { hasMoved: true });
+    board[sq(0, 0)] = makePiece('R', 'white', { hasMoved: true });
+    board[sq(0, 5)] = makePiece('Q', 'black', { hasMoved: true });
+    return makeState(board, 'white');
+  }
+
+  it('лёгкий: когда взятия замечены — забирает ферзя', () => {
+    // random()=0.9 > EASY_MISS_CHANCE → взятия рассматриваются.
+    const { move } = searchEasy(hangingQueen(), () => 0.9);
+    expect(move?.capture).toBe(sq(0, 5));
+  });
+
+  it('лёгкий: иногда проходит мимо взятия — в этом и смысл уровня', () => {
+    // random()=0 < EASY_MISS_CHANCE → взятия выпадают из рассмотрения.
+    const { move } = searchEasy(hangingQueen(), () => 0);
+    expect(move?.capture).toBeUndefined();
+  });
+
+  it('лёгкий не переставляет фигуры наугад: тихие ходы различимы по оценке', () => {
+    // Из начальной позиции разные тихие ходы должны получать РАЗНЫЕ оценки —
+    // иначе выбор снова стал бы случайным (так было на голом материале).
+    const start = createInitialState();
+    const scores = new Set(
+      legalMoves(start)
+        .filter((m) => m.capture === undefined)
+        .map((m) => evaluate(applyMove(start, m))),
+    );
+    expect(scores.size).toBeGreaterThan(3);
   });
 
   it('соблюдает бюджет времени', () => {
