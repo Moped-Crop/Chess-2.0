@@ -221,10 +221,12 @@ export function OnlineGamePage() {
 
       <div className="main">
         <div className="board-col">
+          {/* Соперник — реальный чужой аккаунт: имя ведёт на его профиль. */}
           <PlayerBar
             color={oppColor}
             displayName={opp?.displayName}
             avatarBase64={opp?.avatarBase64}
+            username={opp?.username}
           />
           <div className="card board-card">
             <Board />

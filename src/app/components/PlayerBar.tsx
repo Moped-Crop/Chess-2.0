@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import type { Color } from '../../engine/types';
 import { useGameStore } from '../store/gameStore';
 import { formatTime } from '../clock/clock';
@@ -9,15 +10,20 @@ import { useT } from '../i18n';
  * Панель игрока: аватар-фишка, имя, индикатор хода, часы, взятые фигуры.
  * Пропсы displayName/avatarBase64 необязательны: без них поведение прежнее
  * («Белые»/«Чёрные»), с ними — реальные имя и аватар (онлайн-режим).
+ * `username` передаётся только там, где за панелью стоит реальный чужой
+ * аккаунт — тогда имя становится ссылкой на его профиль. Хотсит, бот,
+ * обучение и повтор его не передают, и ссылки там не появляется.
  */
 export function PlayerBar({
   color,
   displayName,
   avatarBase64,
+  username,
 }: {
   color: Color;
   displayName?: string;
   avatarBase64?: string | null;
+  username?: string;
 }) {
   const t = useT();
   const clock = useGameStore((s) => s.clock);
@@ -33,6 +39,8 @@ export function PlayerBar({
   const advantage = materialScore(taken) - materialScore(capturedBy(captures, opponent));
   const sorted = [...taken].sort((a, b) => materialScore([b]) - materialScore([a]));
 
+  const name = displayName ?? (color === 'white' ? t('white') : t('black'));
+
   return (
     <div className={`player ${active ? 'active' : ''}`}>
       <div className="player-main">
@@ -45,7 +53,13 @@ export function PlayerBar({
         )}
         <span className="player-info">
           <span className="player-name">
-            {displayName ?? (color === 'white' ? t('white') : t('black'))}
+            {username ? (
+              <Link className="player-name-link" to={`/players/${username}`}>
+                {name}
+              </Link>
+            ) : (
+              name
+            )}
           </span>
           {sorted.length > 0 && (
             <span className="player-captures">

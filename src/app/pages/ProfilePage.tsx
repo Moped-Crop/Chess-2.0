@@ -5,6 +5,7 @@ import { apiUpdateProfile, apiGetStats, type UserStats } from '../api/profile';
 import { useT, type StrKey } from '../i18n';
 import { PageShell } from './PageShell';
 import { Avatar } from './MenuPage';
+import { StatsGrid } from '../components/StatsGrid';
 import { errorKey } from './authShared';
 import { ProfileSecurity } from './ProfileSecurity';
 
@@ -99,15 +100,6 @@ export function ProfilePage() {
     }
   }
 
-  const statItems: { key: StrKey; value: number }[] = stats
-    ? [
-        { key: 'statWins', value: stats.wins },
-        { key: 'statLosses', value: stats.losses },
-        { key: 'statDraws', value: stats.draws },
-        { key: 'statGames', value: stats.gamesPlayed },
-      ]
-    : [];
-
   return (
     <PageShell title={t('menuProfile')}>
       <div className="card profile-card">
@@ -149,16 +141,7 @@ export function ProfilePage() {
       </div>
 
       <div className="card profile-card">
-        <h3 className="section-title">{t('statsTitle')}</h3>
-        <div className="stats-grid">
-          {statItems.map((s) => (
-            <div key={s.key} className="stat-cell">
-              <span className="stat-value">{s.value}</span>
-              <span className="stat-label">{t(s.key)}</span>
-            </div>
-          ))}
-          {!stats && <p className="page-loader">{t('loading')}</p>}
-        </div>
+        <StatsGrid stats={stats} />
         <Link className="btn btn-subtle btn-block" to="/history" style={{ marginTop: 12 }}>
           📜 {t('historyTitle')}
         </Link>

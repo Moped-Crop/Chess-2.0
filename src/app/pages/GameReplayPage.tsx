@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import type { GameState, Piece } from '../../engine/types';
+import type { Color, GameState, Piece } from '../../engine/types';
 import {
   createInitialState,
   applyMove,
@@ -188,6 +188,22 @@ export function GameReplayPage() {
     reasonText = mate ? t('reasonMate') : '';
   }
 
+  // Имя соперника ведёт на его профиль — задел под матчмейкинг, где сыгранная
+  // партия может быть единственной ниточкой к незнакомому игроку. Своё имя
+  // остаётся простым текстом.
+  const oppColor: Color = detail.myColor === 'white' ? 'black' : 'white';
+  const players = detail.players;
+
+  function playerName(color: Color) {
+    const p = players[color];
+    if (color !== oppColor) return p.displayName;
+    return (
+      <Link className="replay-player-link" to={`/players/${p.username}`}>
+        {p.displayName}
+      </Link>
+    );
+  }
+
   const tc = detail.timeControlId ? presetById(detail.timeControlId) : null;
   const dateText = detail.finishedAt
     ? new Date(detail.finishedAt).toLocaleDateString(lang === 'en' ? 'en-GB' : 'ru-RU', {
@@ -210,7 +226,7 @@ export function GameReplayPage() {
 
       <div className="replay-info card">
         <span className="replay-players">
-          <b>{detail.players.white.displayName}</b> — <b>{detail.players.black.displayName}</b>
+          <b>{playerName('white')}</b> — <b>{playerName('black')}</b>
         </span>
         <span className="replay-result">
           {resultTitle}

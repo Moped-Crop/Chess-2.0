@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import type { PublicUser } from '../api/auth';
 import {
   apiFriends,
   apiFriendRequest,
@@ -16,7 +18,8 @@ import { Avatar } from './MenuPage';
 
 const REFRESH_MS = 12_000;
 
-function friendErrorKey(e: unknown): StrKey {
+/** Разбор ошибок дружбы; используется и на профиле другого игрока. */
+export function friendErrorKey(e: unknown): StrKey {
   if (e instanceof ApiError) {
     if (e.code === 'user_not_found') return 'errUserNotFound';
     if (e.code === 'self_request') return 'errSelfRequest';
@@ -26,6 +29,22 @@ function friendErrorKey(e: unknown): StrKey {
     if (e.code === 'validation') return 'errValidation';
   }
   return 'errUnknown';
+}
+
+/**
+ * Аватар и имя строки — ссылка на профиль игрока. Кнопки действий лежат
+ * отдельными соседями, а не внутри ссылки, поэтому клик по ним никогда не
+ * открывает профиль (stopPropagation не нужен).
+ */
+function FriendIdentity({ user }: { user: PublicUser }) {
+  return (
+    <Link className="friend-link" to={`/players/${user.username}`}>
+      <Avatar avatarBase64={user.avatarBase64} name={user.displayName} size={36} />
+      <span className="friend-name">
+        {user.displayName} <span className="friend-username">@{user.username}</span>
+      </span>
+    </Link>
+  );
 }
 
 /** Друзья: заявка по логину, входящие/исходящие, список со статусами. */
@@ -117,10 +136,7 @@ export function FriendsPage() {
           <h3 className="section-title">{t('incomingTitle')}</h3>
           {list.incoming.map((f) => (
             <div key={f.friendshipId} className="friend-row">
-              <Avatar avatarBase64={f.user.avatarBase64} name={f.user.displayName} size={36} />
-              <span className="friend-name">
-                {f.user.displayName} <span className="friend-username">@{f.user.username}</span>
-              </span>
+              <FriendIdentity user={f.user} />
               <div className="btn-row friend-actions">
                 <button
                   className="btn btn-primary"
@@ -148,10 +164,7 @@ export function FriendsPage() {
           <div key={f.friendshipId} className="friend-wrap">
             <div className="friend-row">
               <span className={`online-dot ${f.online ? 'on' : ''}`} title={f.online ? t('statusOnline') : t('statusOffline')} />
-              <Avatar avatarBase64={f.user.avatarBase64} name={f.user.displayName} size={36} />
-              <span className="friend-name">
-                {f.user.displayName} <span className="friend-username">@{f.user.username}</span>
-              </span>
+              <FriendIdentity user={f.user} />
               <div className="btn-row friend-actions">
                 <button
                   className="btn btn-subtle"
@@ -194,10 +207,7 @@ export function FriendsPage() {
           <h3 className="section-title">{t('outgoingTitle')}</h3>
           {list.outgoing.map((f) => (
             <div key={f.friendshipId} className="friend-row">
-              <Avatar avatarBase64={f.user.avatarBase64} name={f.user.displayName} size={36} />
-              <span className="friend-name">
-                {f.user.displayName} <span className="friend-username">@{f.user.username}</span>
-              </span>
+              <FriendIdentity user={f.user} />
               <div className="btn-row friend-actions">
                 <button
                   className="btn btn-ghost"

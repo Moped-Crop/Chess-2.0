@@ -64,22 +64,29 @@ export function GameHistoryPage() {
         {games.map((g) => {
           const b = badge(g);
           return (
-            <Link key={g.id} className="history-row" to={`/history/${g.id}`}>
+            // Строка ведёт на повтор партии, а имя соперника — на его профиль.
+            // Вложить ссылку в ссылку нельзя, поэтому строка — обычный div, а
+            // переход к повтору делает растянутая на всю строку ссылка под
+            // содержимым; ссылка на профиль лежит поверх неё.
+            <div key={g.id} className="history-row">
+              <Link className="history-open" to={`/history/${g.id}`} aria-label={t('openGame')} />
               <span className={`history-badge ${b.cls}`}>{b.label}</span>
-              <Avatar
-                avatarBase64={g.opponent.avatarBase64}
-                name={g.opponent.displayName}
-                size={36}
-              />
-              <span className="friend-name">
-                {g.opponent.displayName}{' '}
-                <span className="friend-username">@{g.opponent.username}</span>
-              </span>
+              <Link className="friend-link history-player" to={`/players/${g.opponent.username}`}>
+                <Avatar
+                  avatarBase64={g.opponent.avatarBase64}
+                  name={g.opponent.displayName}
+                  size={36}
+                />
+                <span className="friend-name">
+                  {g.opponent.displayName}{' '}
+                  <span className="friend-username">@{g.opponent.username}</span>
+                </span>
+              </Link>
               <span className="history-meta">
                 <span>{tcLabel(g.timeControlId)}</span>
                 <span className="history-date">{dateLabel(g.finishedAt)}</span>
               </span>
-            </Link>
+            </div>
           );
         })}
         {hasMore && (

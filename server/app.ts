@@ -18,6 +18,7 @@ import { issueCsrfToken, requireCsrf } from './middleware/csrf';
 import { authRouter } from './routes/auth';
 import { profileRouter } from './routes/profile';
 import { friendsRouter } from './routes/friends';
+import { playersRouter } from './routes/players';
 import { accountRouter } from './routes/account';
 import { gamesRouter } from './routes/games';
 import { createMailer, type Mailer } from './lib/mailer';
@@ -76,6 +77,7 @@ export function createApp({ pool, env, mailer }: AppDeps): express.Express {
   app.use('/api/auth', authRouter(pool, env, mail));
   app.use('/api', profileRouter(pool, env));
   app.use('/api/friends', friendsRouter(pool, env));
+  app.use('/api/players', playersRouter(pool, env));
   app.use('/api/account', accountRouter(pool, env, mail));
   app.use('/api/games', gamesRouter(pool, env));
 

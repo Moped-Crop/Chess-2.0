@@ -17,6 +17,7 @@ import { MenuPage } from './pages/MenuPage';
 import { SecureAccountPage } from './pages/SecureAccountPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { FriendsPage } from './pages/FriendsPage';
+import { PlayerProfilePage } from './pages/PlayerProfilePage';
 import { OnlineGamePage } from './pages/OnlineGamePage';
 import { GameHistoryPage } from './pages/GameHistoryPage';
 import { GameReplayPage } from './pages/GameReplayPage';
@@ -113,6 +114,15 @@ export function AppRouter() {
         element={
           <RequireAuth>
             <FriendsPage />
+          </RequireAuth>
+        }
+      />
+      {/* Read-only профиль другого игрока (свой ник уводит на /profile). */}
+      <Route
+        path="/players/:username"
+        element={
+          <RequireAuth>
+            <PlayerProfilePage />
           </RequireAuth>
         }
       />

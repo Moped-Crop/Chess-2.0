@@ -1852,6 +1852,63 @@ button {
   }
 }
 
+/* --- Профиль другого игрока (read-only) --- */
+
+.player-display-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 800;
+}
+
+/* .profile-username уже даёт отступ сверху — здесь он лишний. */
+.player-display-name + .profile-username {
+  margin-top: 4px;
+}
+
+.player-presence {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 10px 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+.player-relation {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.relation-note {
+  font-size: var(--fs-sm);
+  font-weight: 650;
+  color: var(--text-dim);
+}
+
+.player-deleted {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 650;
+  color: var(--text-dim);
+}
+
+/* Имя в панели игрока (онлайн-партия) и в шапке повтора — ссылки на профиль. */
+.player-name-link,
+.replay-player-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.player-name-link:hover,
+.replay-player-link:hover {
+  text-decoration: underline;
+}
+
 /* --- Друзья --- */
 
 .friends-card {
@@ -1927,6 +1984,7 @@ button {
 /* --- История партий --- */
 
 .history-row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1938,6 +1996,22 @@ button {
 
 .history-row:last-of-type {
   border-bottom: none;
+}
+
+/*
+ * Растянутая на всю строку ссылка на повтор партии. Лежит под содержимым и
+ * ловит клики по бейджу, метаданным и пустому месту; ссылка на профиль
+ * соперника (.history-player) поднята над ней.
+ */
+.history-open {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-sm);
+}
+
+.history-player {
+  position: relative;
+  z-index: 1;
 }
 
 .history-row:hover .friend-name {
@@ -2178,6 +2252,20 @@ button {
   color: var(--text-faint);
   font-weight: 500;
   font-size: var(--fs-sm);
+}
+
+/* Аватар + имя как ссылка на профиль игрока (друзья, история). */
+.friend-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.friend-link:hover .friend-name {
+  text-decoration: underline;
 }
 
 .friend-actions {
