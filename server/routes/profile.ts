@@ -81,7 +81,10 @@ export function profileRouter(pool: pg.Pool, env: Env): Router {
         return;
       }
       const r = await pool.query(
-        `SELECT s.wins, s.losses, s.draws, s.games_played, u.username, u.display_name
+        `SELECT s.wins, s.losses, s.draws, s.games_played,
+                s.rating, s.peak_rating,
+                s.ranked_games_played, s.ranked_wins, s.ranked_losses, s.ranked_draws,
+                u.username, u.display_name
          FROM stats s JOIN users u ON u.id = s.user_id
          WHERE s.user_id = $1`,
         [userId],
@@ -97,6 +100,14 @@ export function profileRouter(pool: pg.Pool, env: Env): Router {
           losses: row.losses,
           draws: row.draws,
           gamesPlayed: row.games_played,
+        },
+        rating: row.rating,
+        peakRating: row.peak_rating,
+        ranked: {
+          gamesPlayed: row.ranked_games_played,
+          wins: row.ranked_wins,
+          losses: row.ranked_losses,
+          draws: row.ranked_draws,
         },
         username: row.username,
         displayName: row.display_name,

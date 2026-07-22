@@ -5,6 +5,7 @@ import type { ChatMessage } from '../api/chat';
 import { useT } from '../i18n';
 import { PageShell } from './PageShell';
 import { Avatar } from './MenuPage';
+import { RatingBadge } from '../components/RatingBadge';
 
 /** Короткое превью последнего сообщения в строке беседы. */
 function preview(message: ChatMessage | null, inviteText: string, emptyText: string): string {
@@ -47,6 +48,7 @@ export function ChatsListPage() {
             <span className="chat-row-body">
               <span className="chat-row-top">
                 <span className="friend-name">{c.friend.displayName}</span>
+                <RatingBadge rating={c.friend.rating} />
                 <span
                   className={`online-dot ${c.online ? 'on' : ''}`}
                   title={c.online ? t('statusOnline') : t('statusOffline')}

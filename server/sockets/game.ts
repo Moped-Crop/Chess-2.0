@@ -17,6 +17,7 @@ import type { Color, GameResult, Move } from '../../src/engine/types';
 import { PRESETS, presetById, switchAfterMove } from '../../src/app/clock/clock';
 import { clockFromRow, liveSnapshot, checkFlagged } from '../lib/serverClock';
 import { tryApply, reconstructState } from '../gameEngine';
+import { computeRatingChange, repeatMultiplier, REPEAT_WINDOW_MS } from '../lib/rating';
 import { markOnline, markOffline, socketsOf } from '../presence';
 import { createFriendGame, areFriends } from '../lib/friendGame';
 import { markChatInviteStatus, type InviteStatus } from '../lib/chat';
@@ -46,6 +47,8 @@ const timeControlIds = PRESETS.map((p) => p.id) as [string, ...string[]];
 const inviteSchema = z.object({
   toUserId: z.number().int().positive(),
   timeControlId: z.enum(timeControlIds),
+  // Рейтинговая партия с другом напрямую (защита от фарма — в rating.ts).
+  ranked: z.boolean().optional(),
 });
 
 /* ---------- Вспомогательные типы ---------- */
@@ -62,6 +65,13 @@ interface GameRow {
   black_ms: number | null;
   turn_started_at: Date | string | null;
   win_reason: string | null;
+  is_ranked: boolean;
+}
+
+/** Изменение рейтинга по итогам рейтинговой партии — для события game-over. */
+interface RatingOutcome {
+  white: { delta: number; newRating: number };
+  black: { delta: number; newRating: number };
 }
 
 interface SocketData {
@@ -153,7 +163,7 @@ export function attachGameSockets(io: Server, pool: pg.Pool, env: Env): void {
   async function loadGameRow(gameId: number): Promise<GameRow | null> {
     const r = await pool.query(
       `SELECT id, white_id, black_id, status, result, moves,
-              time_control_id, white_ms, black_ms, turn_started_at, win_reason
+              time_control_id, white_ms, black_ms, turn_started_at, win_reason, is_ranked
        FROM games WHERE id = $1`,
       [gameId],
     );
@@ -164,34 +174,126 @@ export function attachGameSockets(io: Server, pool: pg.Pool, env: Env): void {
     return row;
   }
 
-  async function updateStats(whiteId: number, blackId: number, result: GameResult): Promise<void> {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      if (result === 'draw') {
-        await client.query(
-          'UPDATE stats SET draws = draws + 1, games_played = games_played + 1 WHERE user_id = $1 OR user_id = $2',
-          [whiteId, blackId],
-        );
-      } else {
-        const winner = result === 'white' ? whiteId : blackId;
-        const loser = result === 'white' ? blackId : whiteId;
-        await client.query(
-          'UPDATE stats SET wins = wins + 1, games_played = games_played + 1 WHERE user_id = $1',
-          [winner],
-        );
-        await client.query(
-          'UPDATE stats SET losses = losses + 1, games_played = games_played + 1 WHERE user_id = $1',
-          [loser],
-        );
-      }
-      await client.query('COMMIT');
-    } catch (e) {
-      await client.query('ROLLBACK');
-      throw e;
-    } finally {
-      client.release();
+  /**
+   * Обычная статистика (wins/losses/draws/games_played) — считает ВСЕ
+   * онлайн-партии, и рейтинговые, и нет. Работает на переданном клиенте, чтобы
+   * входить в общую транзакцию завершения партии.
+   */
+  async function applyStats(
+    client: pg.PoolClient,
+    whiteId: number,
+    blackId: number,
+    result: GameResult,
+  ): Promise<void> {
+    if (result === 'draw') {
+      await client.query(
+        'UPDATE stats SET draws = draws + 1, games_played = games_played + 1 WHERE user_id = $1 OR user_id = $2',
+        [whiteId, blackId],
+      );
+    } else {
+      const winner = result === 'white' ? whiteId : blackId;
+      const loser = result === 'white' ? blackId : whiteId;
+      await client.query(
+        'UPDATE stats SET wins = wins + 1, games_played = games_played + 1 WHERE user_id = $1',
+        [winner],
+      );
+      await client.query(
+        'UPDATE stats SET losses = losses + 1, games_played = games_played + 1 WHERE user_id = $1',
+        [loser],
+      );
     }
+  }
+
+  /** Рейтинговый счётчик стороны по её исходу. Имя колонки — из фиксированного набора. */
+  async function bumpRankedStats(
+    client: pg.PoolClient,
+    userId: number,
+    newRating: number,
+    newPeak: number,
+    outcome: 'win' | 'loss' | 'draw',
+  ): Promise<void> {
+    const col =
+      outcome === 'win' ? 'ranked_wins' : outcome === 'loss' ? 'ranked_losses' : 'ranked_draws';
+    await client.query(
+      `UPDATE stats SET rating = $2, peak_rating = $3,
+              ranked_games_played = ranked_games_played + 1, ${col} = ${col} + 1
+       WHERE user_id = $1`,
+      [userId, newRating, newPeak],
+    );
+  }
+
+  /**
+   * Применить рейтинг рейтинговой партии: взять текущие рейтинги обоих, учесть
+   * множитель повторных встреч, посчитать дельты чистой функцией, обновить
+   * stats обоих и записать before/delta в games. Всё на переданном клиенте
+   * (одна транзакция с завершением партии). Возвращает дельты для game-over.
+   */
+  async function applyRatingChange(
+    client: pg.PoolClient,
+    row: GameRow,
+    result: 'white' | 'black' | 'draw',
+  ): Promise<RatingOutcome> {
+    const s = await client.query(
+      'SELECT user_id, rating, peak_rating, ranked_games_played FROM stats WHERE user_id = $1 OR user_id = $2',
+      [row.white_id, row.black_id],
+    );
+    const byId = new Map(
+      (s.rows as Array<{ user_id: number; rating: number; peak_rating: number; ranked_games_played: number }>).map(
+        (r) => [r.user_id, r],
+      ),
+    );
+    const w = byId.get(row.white_id)!;
+    const b = byId.get(row.black_id)!;
+
+    // Множитель повторных встреч: сколько рейтинговых партий эта пара уже
+    // сыграла за последние 24 часа (текущая ещё active — в счёт не попадает,
+    // плюс явно исключаем её id). Cutoff считаем в JS — без SQL-INTERVAL, чтобы
+    // одинаково работало в Postgres и pg-mem.
+    const cutoff = new Date(Date.now() - REPEAT_WINDOW_MS);
+    const rc = await client.query(
+      `SELECT COUNT(*) AS cnt FROM games
+       WHERE is_ranked = true AND status = 'finished' AND finished_at > $3 AND id <> $4
+         AND ((white_id = $1 AND black_id = $2) OR (white_id = $2 AND black_id = $1))`,
+      [row.white_id, row.black_id, cutoff, row.id],
+    );
+    const priorCount = Number((rc.rows[0] as { cnt: number | string }).cnt);
+    const multiplier = repeatMultiplier(priorCount);
+
+    const { whiteDelta, blackDelta } = computeRatingChange({
+      whiteRating: w.rating,
+      blackRating: b.rating,
+      whiteGames: w.ranked_games_played,
+      blackGames: b.ranked_games_played,
+      result,
+      repeatMultiplier: multiplier,
+    });
+    const whiteAfter = w.rating + whiteDelta;
+    const blackAfter = b.rating + blackDelta;
+
+    await bumpRankedStats(
+      client,
+      row.white_id,
+      whiteAfter,
+      Math.max(w.peak_rating, whiteAfter),
+      result === 'white' ? 'win' : result === 'draw' ? 'draw' : 'loss',
+    );
+    await bumpRankedStats(
+      client,
+      row.black_id,
+      blackAfter,
+      Math.max(b.peak_rating, blackAfter),
+      result === 'black' ? 'win' : result === 'draw' ? 'draw' : 'loss',
+    );
+    await client.query(
+      `UPDATE games SET white_rating_before = $1, black_rating_before = $2,
+              white_rating_delta = $3, black_rating_delta = $4 WHERE id = $5`,
+      [w.rating, b.rating, whiteDelta, blackDelta, row.id],
+    );
+
+    return {
+      white: { delta: whiteDelta, newRating: whiteAfter },
+      black: { delta: blackDelta, newRating: blackAfter },
+    };
   }
 
   /**
@@ -243,19 +345,50 @@ export function attachGameSockets(io: Server, pool: pg.Pool, env: Env): void {
     await finishGame(row, winner, 'timeout');
   }
 
-  /** Завершить партию: статус, результат, причина, статистика, уведомление. */
+  /** Завершить партию: статус, результат, причина, статистика, рейтинг, уведомление. */
   async function finishGame(row: GameRow, result: GameResult, reason: EndReason): Promise<void> {
     // Флажок этой партии больше не нужен — безусловно и молча (партия могла
     // закончиться раньше срабатывания: сдача, разрыв, мат).
     clearFlagTimer(row.id);
-    await pool.query(
-      `UPDATE games SET status = 'finished', result = $1, win_reason = $2, finished_at = NOW(),
-              turn_started_at = NULL
-       WHERE id = $3 AND status = 'active'`,
-      [result, reason, row.id],
-    );
-    await updateStats(row.white_id, row.black_id, result);
-    io.to(`game:${row.id}`).emit('game-over', { gameId: row.id, result, reason });
+
+    // Рейтинговая партия? result сюда приходит только результативный
+    // (white/black/draw) — 'aborted' завершается отдельным путём (invite-declined)
+    // и finishGame не вызывает. is_ranked = false ⇒ рейтинг не трогаем вовсе.
+    const ranked =
+      row.is_ranked && (result === 'white' || result === 'black' || result === 'draw');
+
+    let outcome: RatingOutcome | null = null;
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      // Пометка завершённой в той же транзакции, что статистика и рейтинг.
+      // rowCount = 0 ⇒ партию уже завершил другой путь (одновременная сдача +
+      // флажок + реконнект): выходим, не задваивая ни статистику, ни рейтинг.
+      const upd = await client.query(
+        `UPDATE games SET status = 'finished', result = $1, win_reason = $2, finished_at = NOW(),
+                turn_started_at = NULL
+         WHERE id = $3 AND status = 'active'`,
+        [result, reason, row.id],
+      );
+      if ((upd.rowCount ?? 0) === 0) {
+        await client.query('ROLLBACK');
+        return;
+      }
+      await applyStats(client, row.white_id, row.black_id, result);
+      if (ranked) {
+        outcome = await applyRatingChange(client, row, result as 'white' | 'black' | 'draw');
+      }
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+
+    // Расширенное game-over: рейтинговые дельты обеих сторон (клиент берёт свою
+    // по цвету) — модалка окончания сразу покажет «+18 → 1218», без перезахода.
+    io.to(`game:${row.id}`).emit('game-over', { gameId: row.id, result, reason, rating: outcome });
   }
 
   /**
@@ -307,7 +440,7 @@ export function attachGameSockets(io: Server, pool: pg.Pool, env: Env): void {
   void (async () => {
     const r = await pool.query(
       `SELECT id, white_id, black_id, status, result, moves,
-              time_control_id, white_ms, black_ms, turn_started_at, win_reason
+              time_control_id, white_ms, black_ms, turn_started_at, win_reason, is_ranked
        FROM games
        WHERE status = 'active' AND time_control_id IS NOT NULL AND time_control_id != 'none'`,
     );
@@ -341,21 +474,30 @@ export function attachGameSockets(io: Server, pool: pg.Pool, env: Env): void {
     }
 
     /* Приглашение друга в партию. */
-    on('friend-invite', inviteSchema, async ({ toUserId, timeControlId }) => {
+    on('friend-invite', inviteSchema, async ({ toUserId, timeControlId, ranked }) => {
       if (!(await areFriends(pool, userId, toUserId))) return;
 
       // Та же функция создаёт партию и для приглашения из чата (chat:invite).
-      const { gameId } = await createFriendGame(pool, userId, toUserId, timeControlId);
+      const { gameId } = await createFriendGame(pool, userId, toUserId, timeControlId, {
+        ranked: ranked ?? false,
+      });
 
-      const me = await pool.query('SELECT username, display_name FROM users WHERE id = $1', [
-        userId,
-      ]);
+      const me = await pool.query(
+        `SELECT u.username, u.display_name, s.rating
+         FROM users u LEFT JOIN stats s ON s.user_id = u.id WHERE u.id = $1`,
+        [userId],
+      );
       socket.emit('invite-sent', { gameId });
       for (const sid of socketsOf(toUserId)) {
         io.to(sid).emit('friend-invite', {
           gameId,
           timeControlId,
-          from: { username: me.rows[0].username, displayName: me.rows[0].display_name },
+          ranked: ranked ?? false, // тост показывает пометку «рейтинговая» ДО принятия
+          from: {
+            username: me.rows[0].username,
+            displayName: me.rows[0].display_name,
+            rating: (me.rows[0].rating as number | null) ?? 1000,
+          },
         });
       }
     });
@@ -426,16 +568,36 @@ export function attachGameSockets(io: Server, pool: pg.Pool, env: Env): void {
         }
       }
 
+      // (Пере)планировать флажок активной партии с часами при входе. Нужно для
+      // партий, поднятых матчмейкингом сразу в 'active' (их таймер иначе завёлся
+      // бы только с первым ходом), и идемпотентно для остальных (scheduleFlagTimer
+      // сперва снимает прежний таймер).
+      if (
+        row.status === 'active' &&
+        row.time_control_id != null &&
+        row.time_control_id !== 'none' &&
+        row.turn_started_at != null
+      ) {
+        scheduleFlagTimer(row, reconstructState(row.moves).turn);
+      }
+
       const users = await pool.query(
-        'SELECT id, username, display_name, avatar_base64 FROM users WHERE id = $1 OR id = $2',
+        `SELECT u.id, u.username, u.display_name, u.avatar_base64, s.rating
+         FROM users u LEFT JOIN stats s ON s.user_id = u.id
+         WHERE u.id = $1 OR u.id = $2`,
         [row.white_id, row.black_id],
       );
       const byId = new Map(users.rows.map((u) => [u.id as number, u]));
       const pub = (id: number) => {
         const u = byId.get(id);
         return u
-          ? { username: u.username, displayName: u.display_name, avatarBase64: u.avatar_base64 }
-          : { username: '?', displayName: '?', avatarBase64: null };
+          ? {
+              username: u.username,
+              displayName: u.display_name,
+              avatarBase64: u.avatar_base64,
+              rating: (u.rating as number | null) ?? 1000,
+            }
+          : { username: '?', displayName: '?', avatarBase64: null, rating: 1000 };
       };
       socket.emit('game-state', {
         gameId,

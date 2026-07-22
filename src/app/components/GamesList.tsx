@@ -4,6 +4,7 @@ import type { GamePlayer } from '../api/games';
 import { presetById } from '../clock/clock';
 import { useT, useLang } from '../i18n';
 import { Avatar } from '../pages/MenuPage';
+import { RatingBadge } from './RatingBadge';
 
 /** Строка списка — с точки зрения игрока, чью историю смотрим. */
 export interface GameRow {
@@ -13,6 +14,17 @@ export interface GameRow {
   result: GameResult | null;
   timeControlId: string | null;
   finishedAt: string | null;
+  /** Рейтинговая ли партия — бейдж «Рейтинговая»/«Обычная». */
+  isRanked: boolean;
+  /** Изменение рейтинга игрока (null для нерейтинговых). */
+  ratingDelta: number | null;
+}
+
+/** «+18» / «−12» с цветом; null не показывается. */
+function DeltaTag({ delta }: { delta: number | null }) {
+  if (delta === null) return null;
+  const cls = delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
+  return <span className={`rating-delta ${cls}`}>{delta > 0 ? `+${delta}` : String(delta)}</span>;
 }
 
 /**
@@ -77,7 +89,10 @@ export function GamesList({
           // содержимым; ссылка на профиль лежит поверх неё.
           <div key={g.id} className="history-row">
             <Link className="history-open" to={replayTo(g.id)} aria-label={t('openGame')} />
-            <span className={`history-badge ${b.cls}`}>{b.label}</span>
+            <span className={`history-badge ${b.cls}`}>
+              {b.label}
+              {g.isRanked && <DeltaTag delta={g.ratingDelta} />}
+            </span>
             <Link className="friend-link history-player" to={`/players/${g.opponent.username}`}>
               <Avatar
                 avatarBase64={g.opponent.avatarBase64}
@@ -87,9 +102,13 @@ export function GamesList({
               <span className="friend-name">
                 {g.opponent.displayName}{' '}
                 <span className="friend-username">@{g.opponent.username}</span>
+                {g.opponent.rating !== undefined && <RatingBadge rating={g.opponent.rating} />}
               </span>
             </Link>
             <span className="history-meta">
+              <span className={`game-kind-badge ${g.isRanked ? 'ranked' : 'casual'}`}>
+                {g.isRanked ? t('ratedBadge') : t('casualBadge')}
+              </span>
               <span>{tcLabel(g.timeControlId)}</span>
               <span className="history-date">{dateLabel(g.finishedAt)}</span>
             </span>

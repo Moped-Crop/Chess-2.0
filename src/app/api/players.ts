@@ -5,6 +5,14 @@ import type { UserStats } from './profile';
 import type { GamePlayer } from './games';
 import type { Color, GameResult } from '../../engine/types';
 
+/** Статистика по рейтинговым партиям (отдельно от обычной). */
+export interface RankedStats {
+  gamesPlayed: number;
+  wins: number;
+  losses: number;
+  draws: number;
+}
+
 export interface PlayerCardFull {
   deleted: false;
   id: number;
@@ -12,7 +20,10 @@ export interface PlayerCardFull {
   displayName: string;
   avatarBase64: string | null;
   online: boolean;
+  rating: number;
+  peakRating: number;
   stats: UserStats;
+  ranked: RankedStats;
 }
 
 /** Анонимизированный аккаунт: имени, аватара и статистики у него уже нет. */
@@ -37,6 +48,8 @@ export interface PlayerGame {
   winReason: string | null;
   timeControlId: string | null;
   finishedAt: string | null;
+  isRanked: boolean;
+  ratingDelta: number | null;
 }
 
 export function apiPlayerGames(

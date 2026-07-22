@@ -64,11 +64,24 @@ export function playersRouter(pool: pg.Pool, env: Env): Router {
       }
 
       const s = await pool.query(
-        'SELECT wins, losses, draws, games_played FROM stats WHERE user_id = $1',
+        `SELECT wins, losses, draws, games_played,
+                rating, peak_rating, ranked_games_played, ranked_wins, ranked_losses, ranked_draws
+         FROM stats WHERE user_id = $1`,
         [u.id],
       );
       const st = s.rows[0] as
-        | { wins: number; losses: number; draws: number; games_played: number }
+        | {
+            wins: number;
+            losses: number;
+            draws: number;
+            games_played: number;
+            rating: number;
+            peak_rating: number;
+            ranked_games_played: number;
+            ranked_wins: number;
+            ranked_losses: number;
+            ranked_draws: number;
+          }
         | undefined;
 
       res.json({
@@ -78,11 +91,20 @@ export function playersRouter(pool: pg.Pool, env: Env): Router {
         displayName: u.display_name,
         avatarBase64: u.avatar_base64,
         online: isOnline(u.id),
+        rating: st?.rating ?? 1000,
+        peakRating: st?.peak_rating ?? 1000,
         stats: {
           wins: st?.wins ?? 0,
           losses: st?.losses ?? 0,
           draws: st?.draws ?? 0,
           gamesPlayed: st?.games_played ?? 0,
+        },
+        // Отдельная статистика ТОЛЬКО по рейтинговым партиям.
+        ranked: {
+          gamesPlayed: st?.ranked_games_played ?? 0,
+          wins: st?.ranked_wins ?? 0,
+          losses: st?.ranked_losses ?? 0,
+          draws: st?.ranked_draws ?? 0,
         },
       });
     } catch (e) {

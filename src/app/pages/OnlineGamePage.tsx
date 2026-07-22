@@ -20,6 +20,13 @@ interface PlayerInfo {
   username: string;
   displayName: string;
   avatarBase64: string | null;
+  rating: number;
+}
+
+/** Дельта рейтинга каждой стороны в событии game-over (null для нерейтинговых). */
+interface GameOverRating {
+  white: { delta: number; newRating: number };
+  black: { delta: number; newRating: number };
 }
 
 interface GameStatePayload {
@@ -122,8 +129,17 @@ export function OnlineGamePage() {
       synced = false;
       trySync();
     };
-    const onOver = (p: { gameId: number; result: GameResult; reason: string }) => {
+    const onOver = (p: {
+      gameId: number;
+      result: GameResult;
+      reason: string;
+      rating?: GameOverRating | null;
+    }) => {
       if (p.gameId !== id) return;
+      // Своя дельта выбирается по своему цвету (читаем из стора — myColor мог
+      // быть ещё null на момент подписки).
+      const mc = useGameStore.getState().myColor;
+      const mine = p.rating && mc ? p.rating[mc] : null;
       finishOnlineGame(
         p.result,
         p.reason === 'timeout'
@@ -133,6 +149,7 @@ export function OnlineGamePage() {
             : p.reason === 'abandon'
               ? 'abandon'
               : 'game',
+        mine,
       );
     };
     const onInviteAccepted = (p: { gameId: number }) => {
@@ -227,6 +244,7 @@ export function OnlineGamePage() {
             displayName={opp?.displayName}
             avatarBase64={opp?.avatarBase64}
             username={opp?.username}
+            rating={opp?.rating}
           />
           <div className="card board-card">
             <Board />
@@ -235,6 +253,7 @@ export function OnlineGamePage() {
             color={myColor ?? 'white'}
             displayName={me?.displayName ?? user?.displayName}
             avatarBase64={me?.avatarBase64 ?? user?.avatarBase64}
+            rating={me?.rating}
           />
         </div>
 

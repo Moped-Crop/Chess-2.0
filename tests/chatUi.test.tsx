@@ -34,6 +34,7 @@ function message(over: Partial<ChatMessage> = {}): ChatMessage {
     body: 'привет',
     inviteGameId: null,
     inviteTimeControlId: null,
+    inviteRanked: false,
     inviteStatus: 'pending',
     editedAt: null,
     createdAt: '2026-07-01T10:00:00.000Z',
@@ -45,7 +46,7 @@ function message(over: Partial<ChatMessage> = {}): ChatMessage {
 function conversation(over: Partial<Conversation> = {}): Conversation {
   return {
     friendshipId: 5,
-    friend: { id: BOB.id, username: 'bob', displayName: 'Боб', avatarBase64: null },
+    friend: { id: BOB.id, username: 'bob', displayName: 'Боб', avatarBase64: null, rating: 1000 },
     online: true,
     unreadCount: 0,
     lastMessage: null,

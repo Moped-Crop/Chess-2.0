@@ -20,6 +20,8 @@ export interface ChatMessage {
   body: string;
   inviteGameId: number | null;
   inviteTimeControlId: string | null;
+  /** Приглашение на рейтинговую партию — пометка на карточке. */
+  inviteRanked: boolean;
   inviteStatus: InviteStatus;
   editedAt: string | null;
   createdAt: string;
@@ -32,6 +34,7 @@ export interface ChatFriend {
   username: string;
   displayName: string;
   avatarBase64: string | null;
+  rating: number;
 }
 
 export interface Conversation {

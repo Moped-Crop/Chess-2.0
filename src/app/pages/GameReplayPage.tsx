@@ -249,6 +249,18 @@ export function GameReplayPage() {
           {reasonText && <span className="replay-reason"> · {reasonText}</span>}
         </span>
         <span className="replay-meta">
+          <span className={`game-kind-badge ${detail.isRanked ? 'ranked' : 'casual'}`}>
+            {detail.isRanked ? t('ratedBadge') : t('casualBadge')}
+          </span>
+          {detail.isRanked && detail.ratingDelta !== null && (
+            <span
+              className={`rating-delta ${
+                detail.ratingDelta > 0 ? 'up' : detail.ratingDelta < 0 ? 'down' : 'flat'
+              }`}
+            >
+              {detail.ratingDelta > 0 ? `+${detail.ratingDelta}` : String(detail.ratingDelta)}
+            </span>
+          )}
           {tc && <span>{lang === 'en' ? tc.labelEn : tc.label}</span>}
           {dateText && <span>{dateText}</span>}
         </span>

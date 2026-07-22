@@ -9,6 +9,7 @@ import { PageShell } from './PageShell';
 import { Avatar } from './MenuPage';
 import { friendErrorKey } from './FriendsPage';
 import { StatsGrid } from '../components/StatsGrid';
+import { RatingSummary, RankedStatsGrid } from '../components/RatingSummary';
 import { GamesList, type GameRow } from '../components/GamesList';
 
 /** Отношение текущего пользователя к просматриваемому игроку. */
@@ -216,7 +217,18 @@ export function PlayerProfilePage() {
           </div>
 
           <div className="card profile-card">
+            <RatingSummary
+              rating={card.rating}
+              peakRating={card.peakRating}
+              rankedGamesPlayed={card.ranked.gamesPlayed}
+            />
+          </div>
+
+          <div className="card profile-card">
             <StatsGrid stats={card.stats} />
+            <div style={{ marginTop: 16 }}>
+              <RankedStatsGrid ranked={card.ranked} />
+            </div>
           </div>
 
           <div className="card friends-card">

@@ -9,6 +9,7 @@ import { useT, useLang, type StrKey } from '../i18n';
 import { PageShell } from './PageShell';
 import { Avatar } from './MenuPage';
 import { EmojiPicker } from '../components/EmojiPicker';
+import { RatingBadge } from '../components/RatingBadge';
 import { TimeControlPicker } from '../components/TimeControlPicker';
 
 /** Куда уйдёт выбранный эмодзи: в текст сообщения или в реакцию. */
@@ -135,6 +136,9 @@ export function ChatThreadPage() {
     return (
       <div className="chat-invite-card">
         <span className="chat-invite-title">⚔ {t('chatInviteTitle')}</span>
+        {msg.inviteRanked && (
+          <span className="game-kind-badge ranked">{t('ratedBadge')}</span>
+        )}
         {preset && (
           <span className="chat-invite-tc">{lang === 'en' ? preset.labelEn : preset.label}</span>
         )}
@@ -262,6 +266,7 @@ export function ChatThreadPage() {
               <Avatar avatarBase64={friend.avatarBase64} name={friend.displayName} size={36} />
               <span className="friend-name">
                 {friend.displayName} <span className="friend-username">@{friend.username}</span>
+                <RatingBadge rating={friend.rating} />
               </span>
             </Link>
           ) : (
@@ -279,8 +284,8 @@ export function ChatThreadPage() {
 
         {invitePicker && (
           <TimeControlPicker
-            onPick={(id) => {
-              sendInvite(friendshipId, id);
+            onPick={(id, ranked) => {
+              sendInvite(friendshipId, id, ranked);
               setInvitePicker(false);
             }}
           />

@@ -29,6 +29,7 @@ export interface MessageRow {
   body: string;
   invite_game_id: number | null;
   invite_time_control_id: string | null;
+  invite_ranked: boolean;
   invite_status: string;
   edited_at: Date | string | null;
   created_at: Date | string;
@@ -55,6 +56,7 @@ export interface MessageDto {
   body: string;
   inviteGameId: number | null;
   inviteTimeControlId: string | null;
+  inviteRanked: boolean;
   inviteStatus: InviteStatus;
   editedAt: string | null;
   createdAt: string;
@@ -154,6 +156,7 @@ export function toMessageDto(row: MessageRow, reactions: ReactionAgg[]): Message
     body: row.body,
     inviteGameId: row.invite_game_id,
     inviteTimeControlId: row.invite_time_control_id,
+    inviteRanked: row.invite_ranked,
     inviteStatus: row.invite_status as InviteStatus,
     editedAt: toIso(row.edited_at),
     createdAt: toIso(row.created_at) ?? new Date().toISOString(),
@@ -162,7 +165,7 @@ export function toMessageDto(row: MessageRow, reactions: ReactionAgg[]): Message
 }
 
 const MESSAGE_COLUMNS = `id, friendship_id, sender_id, kind, body, invite_game_id,
-        invite_time_control_id, invite_status, edited_at, created_at`;
+        invite_time_control_id, invite_ranked, invite_status, edited_at, created_at`;
 
 /** Одно сообщение по id (без проверки доступа — её делает вызывающий). */
 export async function loadMessageRow(pool: pg.Pool, messageId: number): Promise<MessageRow | null> {

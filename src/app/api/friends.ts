@@ -1,11 +1,19 @@
 /** Друзья: список, заявки, принятие/отклонение, удаление. */
 
 import { api } from './client';
-import type { PublicUser } from './auth';
+
+/** Публичная ссылка на игрока (в списках друзей, заявок, бесед). */
+export interface PublicPlayer {
+  id: number;
+  username: string;
+  displayName: string;
+  avatarBase64: string | null;
+  rating: number;
+}
 
 export interface FriendEntry {
   friendshipId: number;
-  user: PublicUser;
+  user: PublicPlayer;
   online: boolean;
 }
 

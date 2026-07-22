@@ -10,6 +10,23 @@ export interface UserStats {
   gamesPlayed: number;
 }
 
+/** Статистика по рейтинговым партиям (отдельная четвёрка). */
+export interface RankedStats {
+  gamesPlayed: number;
+  wins: number;
+  losses: number;
+  draws: number;
+}
+
+export interface StatsResponse {
+  stats: UserStats;
+  rating: number;
+  peakRating: number;
+  ranked: RankedStats;
+  username: string;
+  displayName: string;
+}
+
 export function apiUpdateProfile(input: {
   displayName?: string;
   avatarBase64?: string | null;
@@ -17,8 +34,6 @@ export function apiUpdateProfile(input: {
   return api('/api/profile', { method: 'PUT', body: input });
 }
 
-export function apiGetStats(
-  userId: number,
-): Promise<{ stats: UserStats; username: string; displayName: string }> {
+export function apiGetStats(userId: number): Promise<StatsResponse> {
   return api(`/api/stats/${userId}`);
 }

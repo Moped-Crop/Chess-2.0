@@ -50,7 +50,8 @@ export function gamesRouter(pool: pg.Pool, env: Env): Router {
         return;
       }
       const r = await pool.query(
-        `SELECT id, white_id, black_id, status, result, win_reason, time_control_id, moves, finished_at
+        `SELECT id, white_id, black_id, status, result, win_reason, time_control_id, moves, finished_at,
+                is_ranked, white_rating_delta, black_rating_delta
          FROM games WHERE id = $1`,
         [id],
       );
@@ -65,6 +66,9 @@ export function gamesRouter(pool: pg.Pool, env: Env): Router {
             time_control_id: string | null;
             moves: Move[] | string;
             finished_at: Date | string | null;
+            is_ranked: boolean;
+            white_rating_delta: number | null;
+            black_rating_delta: number | null;
           }
         | undefined;
       const isPlayer = !!g && (g.white_id === uid || g.black_id === uid);
@@ -95,6 +99,13 @@ export function gamesRouter(pool: pg.Pool, env: Env): Router {
         myColor: g.black_id === uid ? 'black' : 'white',
         players: { white: pub(g.white_id), black: pub(g.black_id) },
         finishedAt: g.finished_at,
+        isRanked: g.is_ranked,
+        // Дельта рейтинга ИМЕННО зрителя (если он участник рейтинговой партии).
+        ratingDelta: isPlayer
+          ? g.white_id === uid
+            ? g.white_rating_delta
+            : g.black_rating_delta
+          : null,
       });
     } catch (e) {
       next(e);

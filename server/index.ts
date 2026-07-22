@@ -14,6 +14,7 @@ import { runMigrations } from './db/migrate';
 import { createApp } from './app';
 import { attachGameSockets } from './sockets/game';
 import { attachChatSockets } from './sockets/chat';
+import { attachMatchmakingSockets } from './sockets/matchmaking';
 
 const env = loadEnv();
 const pool = await createPool(env.DATABASE_URL);
@@ -32,6 +33,7 @@ export const io = new SocketIOServer(httpServer, {
 
 attachGameSockets(io, pool, env);
 attachChatSockets(io, pool, env);
+attachMatchmakingSockets(io, pool, env);
 
 httpServer.listen(env.PORT, () => {
   console.log(`Chess 2 server: http://localhost:${env.PORT} (${env.NODE_ENV})`);

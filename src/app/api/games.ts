@@ -9,6 +9,8 @@ export interface GamePlayer {
   username: string;
   displayName: string;
   avatarBase64: string | null;
+  /** Может отсутствовать у ответов старого сервера. */
+  rating?: number;
 }
 
 export interface HistoryEntry {
@@ -19,6 +21,9 @@ export interface HistoryEntry {
   winReason: OnlineEndReason | null;
   timeControlId: string | null;
   finishedAt: string | null;
+  isRanked: boolean;
+  /** Изменение рейтинга игрока за партию; null для нерейтинговых. */
+  ratingDelta: number | null;
 }
 
 export interface HistoryPage {
@@ -36,6 +41,9 @@ export interface GameDetail {
   myColor: Color;
   players: { white: GamePlayer; black: GamePlayer };
   finishedAt: string | null;
+  isRanked: boolean;
+  /** Изменение рейтинга зрителя (если он участник рейтинговой партии). */
+  ratingDelta: number | null;
 }
 
 export function apiGameHistory(page: number): Promise<HistoryPage> {

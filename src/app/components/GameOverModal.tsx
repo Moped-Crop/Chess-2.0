@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../store/gameStore';
 import { isKingInCheck, legalMoves } from '../../engine';
-import { useT } from '../i18n';
+import { RANKS, rankFor } from '../lib/ranks';
+import { useT, useLang } from '../i18n';
 
 /**
  * Окно «Конец партии»: мат, пат/ничьи, падение флага; в онлайне — также
@@ -10,11 +11,13 @@ import { useT } from '../i18n';
  */
 export function GameOverModal() {
   const t = useT();
+  const lang = useLang();
   const navigate = useNavigate();
   const game = useGameStore((s) => s.game);
   const clock = useGameStore((s) => s.clock);
   const mode = useGameStore((s) => s.mode);
   const onlineEndReason = useGameStore((s) => s.onlineEndReason);
+  const onlineRating = useGameStore((s) => s.onlineRating);
   const newGame = useGameStore((s) => s.newGame);
 
   const over = game.result !== 'ongoing';
@@ -47,6 +50,30 @@ export function GameOverModal() {
   const title =
     game.result === 'white' ? t('whiteWins') : game.result === 'black' ? t('blackWins') : t('draw');
 
+  // Рейтинговая партия: «+18 → 1218» и поздравление при переходе на новый ранг.
+  let ratingBlock: React.ReactNode = null;
+  if (mode === 'online' && onlineRating) {
+    const { delta, newRating } = onlineRating;
+    const before = newRating - delta;
+    const rankBefore = rankFor(before);
+    const rankAfter = rankFor(newRating);
+    const rankedUp = RANKS.indexOf(rankAfter) > RANKS.indexOf(rankBefore);
+    const deltaCls = delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
+    const deltaStr = delta > 0 ? `+${delta}` : String(delta);
+    ratingBlock = (
+      <div className="gameover-rating">
+        <span className="gameover-rating-line">
+          <span className={`rating-delta ${deltaCls}`}>{deltaStr}</span> → {newRating}
+        </span>
+        {rankedUp && (
+          <span className="gameover-newrank">
+            🎉 {t('newRankTitle')} {lang === 'en' ? rankAfter.nameEn : rankAfter.nameRu}
+          </span>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="overlay" onClick={() => setOpen(false)}>
       <div className="modal gameover-modal" onClick={(e) => e.stopPropagation()}>
@@ -69,6 +96,7 @@ export function GameOverModal() {
         </div>
         <h3 className="gameover-title">{title}</h3>
         <p className="gameover-reason">{reason}</p>
+        {ratingBlock}
         <div className="gameover-actions">
           {mode === 'online' ? (
             <button

@@ -28,6 +28,7 @@ interface ConversationRow {
   username: string;
   display_name: string;
   avatar_base64: string | null;
+  rating: number | null;
 }
 
 export function chatRouter(pool: pg.Pool, env: Env): Router {
@@ -51,10 +52,11 @@ export function chatRouter(pool: pg.Pool, env: Env): Router {
       const uid = req.userId!;
       const friendsRes = await pool.query(
         `SELECT f.id AS friendship_id, f.requester_id, f.requester_last_read, f.addressee_last_read,
-                u.id, u.username, u.display_name, u.avatar_base64
+                u.id, u.username, u.display_name, u.avatar_base64, s.rating
          FROM friendships f
          JOIN users u
            ON u.id = CASE WHEN f.requester_id = $1 THEN f.addressee_id ELSE f.requester_id END
+         LEFT JOIN stats s ON s.user_id = u.id
          WHERE (f.requester_id = $1 OR f.addressee_id = $1) AND f.status = 'accepted'`,
         [uid],
       );
@@ -77,7 +79,7 @@ export function chatRouter(pool: pg.Pool, env: Env): Router {
           const ph2 = lastIds.map((_, i) => `$${i + 1}`).join(', ');
           const msgs = await pool.query(
             `SELECT id, friendship_id, sender_id, kind, body, invite_game_id,
-                    invite_time_control_id, invite_status, edited_at, created_at
+                    invite_time_control_id, invite_ranked, invite_status, edited_at, created_at
              FROM messages WHERE id IN (${ph2})`,
             lastIds,
           );
@@ -115,6 +117,7 @@ export function chatRouter(pool: pg.Pool, env: Env): Router {
             username: r.username,
             displayName: r.display_name,
             avatarBase64: r.avatar_base64,
+            rating: r.rating ?? 1000,
           },
           online: isOnline(r.id),
           unreadCount: unreadById.get(r.friendship_id) ?? 0,

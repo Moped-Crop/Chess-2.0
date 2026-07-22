@@ -58,7 +58,9 @@ export function MenuPage() {
     badge?: number;
   }> = [
     { to: '/play/local', title: t('menuLocal'), sub: t('menuLocalSub'), icon: '♟' },
+    { to: '/play/ranked', title: t('menuRanked'), sub: t('menuRankedSub'), icon: '🏆' },
     { to: '/friends?invite=1', title: t('menuOnline'), sub: t('menuOnlineSub'), icon: '⚔' },
+    { to: '/leaderboard', title: t('menuLeaderboard'), sub: t('menuLeaderboardSub'), icon: '📊' },
     { to: '/play/bot/setup', title: t('menuBot'), sub: t('menuBotSub'), icon: '🤖' },
     { to: '/how-to-play', title: t('menuHowTo'), sub: t('menuHowToSub'), icon: '🎓' },
     { to: '/chats', title: t('menuChats'), sub: t('menuChatsSub'), icon: '💬', badge: unread },

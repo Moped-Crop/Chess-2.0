@@ -41,7 +41,11 @@ const editSchema = z.object({ messageId, text });
 // несколько кодовых единиц, поэтому лимит с запасом, но в рамках VARCHAR(16).
 const reactSchema = z.object({ messageId, emoji: z.string().min(1).max(16) });
 const timeControlIds = PRESETS.map((p) => p.id) as [string, ...string[]];
-const inviteSchema = z.object({ friendshipId, timeControlId: z.enum(timeControlIds) });
+const inviteSchema = z.object({
+  friendshipId,
+  timeControlId: z.enum(timeControlIds),
+  ranked: z.boolean().optional(),
+});
 
 /* ---------- Антиспам: не больше 10 сообщений за 10 секунд ---------- */
 
@@ -189,16 +193,19 @@ export function attachChatSockets(io: Server, pool: pg.Pool, env: Env): void {
     });
 
     /* Приглашение в партию прямо из чата. */
-    on('chat:invite', inviteSchema, async ({ friendshipId: fid, timeControlId }) => {
+    on('chat:invite', inviteSchema, async ({ friendshipId: fid, timeControlId, ranked }) => {
       const friendship = await loadAcceptedFriendship(pool, fid, userId);
       if (!friendship) return;
+      const isRanked = ranked ?? false;
       const toUserId = otherMember(friendship, userId);
       // Партия создаётся ровно той же функцией, что и обычный friend-invite.
-      const { gameId } = await createFriendGame(pool, userId, toUserId, timeControlId);
+      const { gameId } = await createFriendGame(pool, userId, toUserId, timeControlId, {
+        ranked: isRanked,
+      });
       const inserted = await pool.query(
-        `INSERT INTO messages (friendship_id, sender_id, kind, body, invite_game_id, invite_time_control_id)
-         VALUES ($1, $2, 'invite', '', $3, $4) RETURNING id`,
-        [fid, userId, gameId, timeControlId],
+        `INSERT INTO messages (friendship_id, sender_id, kind, body, invite_game_id, invite_time_control_id, invite_ranked)
+         VALUES ($1, $2, 'invite', '', $3, $4, $5) RETURNING id`,
+        [fid, userId, gameId, timeControlId, isRanked],
       );
       await broadcastMessage(inserted.rows[0].id as number, [
         friendship.requester_id,
@@ -207,15 +214,22 @@ export function attachChatSockets(io: Server, pool: pg.Pool, env: Env): void {
 
       // Плюс обычное приглашение: получатель увидит тост, даже если сейчас
       // не смотрит в чат (тот же самый gameId — принятие уже глобальное).
-      const me = await pool.query('SELECT username, display_name FROM users WHERE id = $1', [
-        userId,
-      ]);
+      const me = await pool.query(
+        `SELECT u.username, u.display_name, s.rating
+         FROM users u LEFT JOIN stats s ON s.user_id = u.id WHERE u.id = $1`,
+        [userId],
+      );
       socket.emit('invite-sent', { gameId });
       for (const sid of socketsOf(toUserId)) {
         io.to(sid).emit('friend-invite', {
           gameId,
           timeControlId,
-          from: { username: me.rows[0].username, displayName: me.rows[0].display_name },
+          ranked: isRanked,
+          from: {
+            username: me.rows[0].username,
+            displayName: me.rows[0].display_name,
+            rating: (me.rows[0].rating as number | null) ?? 1000,
+          },
         });
       }
     });

@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { apiUpdateProfile, apiGetStats, type UserStats } from '../api/profile';
+import { apiUpdateProfile, apiGetStats, type StatsResponse } from '../api/profile';
 import { useT, type StrKey } from '../i18n';
 import { PageShell } from './PageShell';
 import { Avatar } from './MenuPage';
 import { StatsGrid } from '../components/StatsGrid';
+import { RatingSummary, RankedStatsGrid } from '../components/RatingSummary';
 import { errorKey } from './authShared';
 import { ProfileSecurity } from './ProfileSecurity';
 
@@ -49,7 +50,7 @@ export function ProfilePage() {
   const setUser = useAuthStore((s) => s.setUser);
 
   const [displayName, setDisplayName] = useState(user?.displayName ?? '');
-  const [stats, setStats] = useState<UserStats | null>(null);
+  const [stats, setStats] = useState<StatsResponse | null>(null);
   const [error, setError] = useState<StrKey | null>(null);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -60,7 +61,7 @@ export function ProfilePage() {
     let cancelled = false;
     apiGetStats(user.id)
       .then((r) => {
-        if (!cancelled) setStats(r.stats);
+        if (!cancelled) setStats(r);
       })
       .catch(() => {
         /* статистика не критична для страницы */
@@ -140,8 +141,25 @@ export function ProfilePage() {
         <p className="profile-username">@{user.username}</p>
       </div>
 
+      {stats && (
+        <div className="card profile-card">
+          <RatingSummary
+            rating={stats.rating}
+            peakRating={stats.peakRating}
+            rankedGamesPlayed={stats.ranked.gamesPlayed}
+          />
+        </div>
+      )}
+
       <div className="card profile-card">
-        <StatsGrid stats={stats} />
+        {/* Обычная статистика — включает и рейтинговые, и обычные онлайн-партии. */}
+        <StatsGrid stats={stats?.stats ?? null} />
+        {/* Отдельно — только рейтинговые партии. */}
+        {stats && (
+          <div style={{ marginTop: 16 }}>
+            <RankedStatsGrid ranked={stats.ranked} />
+          </div>
+        )}
         <Link className="btn btn-subtle btn-block" to="/history" style={{ marginTop: 12 }}>
           📜 {t('historyTitle')}
         </Link>

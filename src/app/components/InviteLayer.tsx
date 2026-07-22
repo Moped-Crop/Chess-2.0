@@ -5,13 +5,16 @@ import { useGameStore } from '../store/gameStore';
 import { connectSocket, disconnectSocket } from '../net/socket';
 import { checkSound } from '../sound';
 import { presetById } from '../clock/clock';
+import { RatingBadge } from './RatingBadge';
 import { useT, useLang } from '../i18n';
 
 interface Invite {
   gameId: number;
-  from: { username: string; displayName: string };
+  from: { username: string; displayName: string; rating?: number };
   /** id пресета контроля времени; отсутствует у приглашений старого сервера. */
   timeControlId?: string;
+  /** Приглашение на рейтинговую партию — пометка ДО принятия. */
+  ranked?: boolean;
 }
 
 /**
@@ -64,9 +67,12 @@ export function InviteLayer() {
       {invite && (
         <div className="invite-toast card">
           <span className="invite-text">
-            <b>{invite.from.displayName}</b> {t('inviteIncoming')}
+            <b>{invite.from.displayName}</b>
+            {invite.from.rating !== undefined && <RatingBadge rating={invite.from.rating} />}{' '}
+            {t('inviteIncoming')}
             {invite.timeControlId && (
-              <span className="invite-tc">
+              <span className={`invite-tc ${invite.ranked ? 'ranked' : ''}`}>
+                {invite.ranked ? `${t('ratedBadge')} · ` : ''}
                 {lang === 'en'
                   ? presetById(invite.timeControlId).labelEn
                   : presetById(invite.timeControlId).label}

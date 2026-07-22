@@ -52,6 +52,12 @@ export type { BotDifficulty };
 /** Причина завершения онлайн-партии ('game' — мат/пат/ничья по правилам). */
 export type OnlineEndReason = 'game' | 'resign' | 'abandon' | 'timeout';
 
+/** Изменение рейтинга ИГРОКА за только что завершившуюся рейтинговую партию. */
+export interface OnlineRating {
+  delta: number;
+  newRating: number;
+}
+
 /** Противник в онлайн-партии (для PlayerBar). */
 export interface OpponentInfo {
   displayName: string;
@@ -133,6 +139,8 @@ interface GameStore {
   myColor: Color | null;
   opponent: OpponentInfo | null;
   onlineEndReason: OnlineEndReason | null;
+  /** Рейтинговая дельта игрока за завершённую партию (для модалки окончания). */
+  onlineRating: OnlineRating | null;
 
   // --- Партия с ботом (mode='bot': чистый клиент, сервера не касается) ---
   botDifficulty: BotDifficulty | null;
@@ -155,8 +163,12 @@ interface GameStore {
     reason: OnlineEndReason | null;
     clock: ClockState | null;
   }) => void;
-  /** Партия завершена сервером (мат/сдача/разрыв/тайм-аут). */
-  finishOnlineGame: (result: GameResult, reason: OnlineEndReason) => void;
+  /** Партия завершена сервером (мат/сдача/разрыв/тайм-аут). rating — своя дельта для рейтинговых. */
+  finishOnlineGame: (
+    result: GameResult,
+    reason: OnlineEndReason,
+    rating?: OnlineRating | null,
+  ) => void;
   /** Выйти из онлайн-режима и вернуть локальный автосейв. */
   leaveOnlineGame: () => void;
 
@@ -324,6 +336,7 @@ export const useGameStore = create<GameStore>((set, get) => {
     myColor: null,
     opponent: null,
     onlineEndReason: null,
+    onlineRating: null,
     botDifficulty: null,
     botThinking: false,
 
@@ -398,6 +411,7 @@ export const useGameStore = create<GameStore>((set, get) => {
         myColor,
         opponent,
         onlineEndReason: reason ?? null,
+        onlineRating: null,
         botDifficulty: null,
         botThinking: false,
         // Своя сторона всегда снизу; настройка ориентации не перезаписывается.
@@ -405,7 +419,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       });
     },
 
-    finishOnlineGame: (result, reason) => {
+    finishOnlineGame: (result, reason, rating) => {
       const { game, muted, clock } = get();
       if (result === 'ongoing') return;
       // Часы останавливаются при любом завершении — иначе локальный тикер
@@ -415,7 +429,7 @@ export const useGameStore = create<GameStore>((set, get) => {
         : null;
       if (game.result !== 'ongoing') {
         // Результат уже применён оптимистичным ходом — дописываем причину.
-        set({ onlineEndReason: reason, clock: stoppedClock });
+        set({ onlineEndReason: reason, onlineRating: rating ?? null, clock: stoppedClock });
         return;
       }
       if (!muted) {
@@ -428,6 +442,7 @@ export const useGameStore = create<GameStore>((set, get) => {
         pending: null,
         selected: null,
         onlineEndReason: reason,
+        onlineRating: rating ?? null,
         clock: stoppedClock,
       });
     },

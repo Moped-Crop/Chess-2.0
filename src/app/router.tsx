@@ -26,6 +26,8 @@ import { BotSetupPage } from './pages/BotSetupPage';
 import { BotGamePage } from './pages/BotGamePage';
 import { ChatsListPage } from './pages/ChatsListPage';
 import { ChatThreadPage } from './pages/ChatThreadPage';
+import { RankedPage } from './pages/RankedPage';
+import { LeaderboardPage } from './pages/LeaderboardPage';
 import { InviteLayer } from './components/InviteLayer';
 import { ChatLayer } from './components/ChatLayer';
 import { useAuthStore } from './store/authStore';
@@ -144,6 +146,23 @@ export function AppRouter() {
         element={
           <RequireAuth>
             <PlayerProfilePage />
+          </RequireAuth>
+        }
+      />
+      {/* Рейтинговый матч: поиск соперника по рейтингу. */}
+      <Route
+        path="/play/ranked"
+        element={
+          <RequireAuth>
+            <RankedPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/leaderboard"
+        element={
+          <RequireAuth>
+            <LeaderboardPage />
           </RequireAuth>
         }
       />

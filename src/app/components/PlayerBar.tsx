@@ -4,6 +4,7 @@ import { useGameStore } from '../store/gameStore';
 import { formatTime } from '../clock/clock';
 import { capturedBy, materialScore } from '../material';
 import { MiniPiece } from './MiniPiece';
+import { RatingBadge } from './RatingBadge';
 import { useT } from '../i18n';
 
 /**
@@ -19,11 +20,14 @@ export function PlayerBar({
   displayName,
   avatarBase64,
   username,
+  rating,
 }: {
   color: Color;
   displayName?: string;
   avatarBase64?: string | null;
   username?: string;
+  /** Рейтинг реального соперника/игрока — бейдж рядом с ником (только онлайн). */
+  rating?: number;
 }) {
   const t = useT();
   const clock = useGameStore((s) => s.clock);
@@ -59,6 +63,11 @@ export function PlayerBar({
               </Link>
             ) : (
               name
+            )}
+            {rating !== undefined && (
+              <span className="player-rating">
+                <RatingBadge rating={rating} />
+              </span>
             )}
           </span>
           {sorted.length > 0 && (

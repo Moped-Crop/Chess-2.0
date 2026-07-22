@@ -47,7 +47,7 @@ interface ChatStore {
   setActiveThread: (friendshipId: number | null) => void;
 
   sendMessage: (friendshipId: number, text: string) => void;
-  sendInvite: (friendshipId: number, timeControlId: string) => void;
+  sendInvite: (friendshipId: number, timeControlId: string, ranked: boolean) => void;
   editMessage: (messageId: number, text: string) => void;
   toggleReaction: (messageId: number, emoji: string) => void;
   markRead: (friendshipId: number) => void;
@@ -179,8 +179,8 @@ export const useChatStore = create<ChatStore>()((set, get) => {
       connectSocket().emit('chat:send', { friendshipId, text: body });
     },
 
-    sendInvite: (friendshipId, timeControlId) => {
-      connectSocket().emit('chat:invite', { friendshipId, timeControlId });
+    sendInvite: (friendshipId, timeControlId, ranked) => {
+      connectSocket().emit('chat:invite', { friendshipId, timeControlId, ranked });
     },
 
     editMessage: (messageId, text) => {

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useChatStore, badgeText } from '../store/chatStore';
-import type { PublicUser } from '../api/auth';
 import {
   apiFriends,
   apiFriendRequest,
@@ -9,12 +8,14 @@ import {
   apiFriendDecline,
   apiFriendRemove,
   type FriendsList,
+  type PublicPlayer,
 } from '../api/friends';
 import { ApiError } from '../api/client';
 import { connectSocket } from '../net/socket';
 import { useT, type StrKey } from '../i18n';
 import { PageShell } from './PageShell';
 import { Avatar } from './MenuPage';
+import { RatingBadge } from '../components/RatingBadge';
 import { TimeControlPicker } from '../components/TimeControlPicker';
 
 const REFRESH_MS = 12_000;
@@ -40,7 +41,7 @@ export function friendErrorKey(e: unknown): StrKey {
  * `unread` — личный счётчик непрочитанных ИМЕННО от этого друга (не общая
  * сумма): маленький бейдж в углу аватара, как значки на иконках приложений.
  */
-function FriendIdentity({ user, unread = 0 }: { user: PublicUser; unread?: number }) {
+function FriendIdentity({ user, unread = 0 }: { user: PublicPlayer; unread?: number }) {
   return (
     <Link className="friend-link" to={`/players/${user.username}`}>
       <span className="friend-avatar-wrap">
@@ -51,6 +52,7 @@ function FriendIdentity({ user, unread = 0 }: { user: PublicUser; unread?: numbe
       </span>
       <span className="friend-name">
         {user.displayName} <span className="friend-username">@{user.username}</span>
+        <RatingBadge rating={user.rating} />
       </span>
     </Link>
   );
@@ -111,8 +113,8 @@ export function FriendsPage() {
   }
 
   /** Второй шаг приглашения: контроль времени выбран — отправляем. */
-  function sendInvite(toUserId: number, timeControlId: string) {
-    connectSocket().emit('friend-invite', { toUserId, timeControlId });
+  function sendInvite(toUserId: number, timeControlId: string, ranked: boolean) {
+    connectSocket().emit('friend-invite', { toUserId, timeControlId, ranked });
     setPickingId(null);
     setInvitedId(toUserId);
     window.setTimeout(() => setInvitedId(null), 5000);
@@ -206,7 +208,7 @@ export function FriendsPage() {
               </div>
             </div>
             {pickingId === f.user.id && (
-              <TimeControlPicker onPick={(id) => sendInvite(f.user.id, id)} />
+              <TimeControlPicker onPick={(id, ranked) => sendInvite(f.user.id, id, ranked)} />
             )}
           </div>
         ))}

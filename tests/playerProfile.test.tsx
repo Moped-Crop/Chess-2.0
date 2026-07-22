@@ -30,7 +30,10 @@ const BOB: PlayerCard = {
   displayName: 'Боб',
   avatarBase64: null,
   online: true,
+  rating: 1150,
+  peakRating: 1200,
   stats: { wins: 3, losses: 1, draws: 2, gamesPlayed: 6 },
+  ranked: { gamesPlayed: 4, wins: 2, losses: 1, draws: 1 },
 };
 
 const EMPTY_FRIENDS: FriendsList = { friends: [], incoming: [], outgoing: [] };
@@ -40,12 +43,14 @@ const BOB_GAMES = {
   games: [
     {
       id: 42,
-      opponent: { username: 'carol', displayName: 'Кэрол', avatarBase64: null },
+      opponent: { username: 'carol', displayName: 'Кэрол', avatarBase64: null, rating: 1000 },
       playerColor: 'black',
       result: 'black',
       winReason: 'game',
       timeControlId: '5+3',
       finishedAt: '2026-07-01T10:00:00.000Z',
+      isRanked: false,
+      ratingDelta: null,
     },
   ],
   hasMore: false,
@@ -53,7 +58,7 @@ const BOB_GAMES = {
 
 const bobEntry = (friendshipId: number) => ({
   friendshipId,
-  user: { id: 2, username: 'bob', displayName: 'Боб', avatarBase64: null, totpEnabled: false },
+  user: { id: 2, username: 'bob', displayName: 'Боб', avatarBase64: null, rating: 1150 },
   online: true,
 });
 
@@ -123,7 +128,10 @@ describe('PlayerProfilePage', () => {
     expect(screen.getByText('в сети')).toBeTruthy();
     // Статистика — тот же общий блок, что и в своём профиле.
     expect(screen.getByText('6')).toBeTruthy();
-    expect(screen.getByText('Сыграно партий')).toBeTruthy();
+    // «Сыграно партий» теперь в двух блоках: обычная статистика и рейтинговая.
+    expect(screen.getAllByText('Сыграно партий').length).toBe(2);
+    // Крупный блок рейтинга: число и пик.
+    expect(screen.getByText('1150')).toBeTruthy();
   });
 
   it('no relation → «Добавить в друзья» sends the request', async () => {
