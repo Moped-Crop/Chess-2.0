@@ -61,7 +61,7 @@ export interface OnlineRating {
 /** Противник в онлайн-партии (для PlayerBar). */
 export interface OpponentInfo {
   displayName: string;
-  avatarBase64: string | null;
+  userId: number | null;
 }
 
 interface PendingChoice {

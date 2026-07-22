@@ -14,7 +14,7 @@ import { ApiError } from '../api/client';
 import { connectSocket } from '../net/socket';
 import { useT, type StrKey } from '../i18n';
 import { PageShell } from './PageShell';
-import { Avatar } from './MenuPage';
+import { Avatar } from '../components/Avatar';
 import { RatingBadge } from '../components/RatingBadge';
 import { TimeControlPicker } from '../components/TimeControlPicker';
 
@@ -45,7 +45,7 @@ function FriendIdentity({ user, unread = 0 }: { user: PublicPlayer; unread?: num
   return (
     <Link className="friend-link" to={`/players/${user.username}`}>
       <span className="friend-avatar-wrap">
-        <Avatar avatarBase64={user.avatarBase64} name={user.displayName} size={36} />
+        <Avatar userId={user.id} name={user.displayName} size={36} />
         {unread > 0 && (
           <span className="unread-badge unread-badge-corner">{badgeText(unread)}</span>
         )}

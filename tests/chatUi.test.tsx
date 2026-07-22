@@ -46,7 +46,7 @@ function message(over: Partial<ChatMessage> = {}): ChatMessage {
 function conversation(over: Partial<Conversation> = {}): Conversation {
   return {
     friendshipId: 5,
-    friend: { id: BOB.id, username: 'bob', displayName: 'Боб', avatarBase64: null, rating: 1000 },
+    friend: { id: BOB.id, username: 'bob', displayName: 'Боб', rating: 1000 },
     online: true,
     unreadCount: 0,
     lastMessage: null,

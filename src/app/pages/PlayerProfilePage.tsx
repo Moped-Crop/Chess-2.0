@@ -6,7 +6,7 @@ import { apiFriends, apiFriendRequest, apiFriendAccept, apiFriendDecline } from 
 import { ApiError } from '../api/client';
 import { useT, type StrKey } from '../i18n';
 import { PageShell } from './PageShell';
-import { Avatar } from './MenuPage';
+import { Avatar } from '../components/Avatar';
 import { friendErrorKey } from './FriendsPage';
 import { StatsGrid } from '../components/StatsGrid';
 import { RatingSummary, RankedStatsGrid } from '../components/RatingSummary';
@@ -202,7 +202,7 @@ export function PlayerProfilePage() {
         <>
           <div className="card profile-card">
             <div className="profile-main">
-              <Avatar avatarBase64={card.avatarBase64} name={card.displayName} size={88} />
+              <Avatar userId={card.id} name={card.displayName} size={88} />
               <div className="profile-fields">
                 <h3 className="player-display-name">{card.displayName}</h3>
                 <p className="profile-username">@{card.username}</p>

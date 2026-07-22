@@ -4,7 +4,7 @@ import { apiLeaderboard, type LeaderboardEntry, type LeaderboardMe } from '../ap
 import { useAuthStore } from '../store/authStore';
 import { useT, useLang, translate } from '../i18n';
 import { PageShell } from './PageShell';
-import { Avatar } from './MenuPage';
+import { Avatar } from '../components/Avatar';
 import { RatingBadge } from '../components/RatingBadge';
 
 const MEDALS: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
@@ -35,7 +35,7 @@ function Row({ entry, you }: { entry: LeaderboardEntry; you?: boolean }) {
         <span className="lb-place">{entry.place}</span>
       )}
       <span className="lb-identity">
-        <Avatar avatarBase64={entry.avatarBase64} name={entry.displayName} size={36} />
+        <Avatar userId={entry.userId} name={entry.displayName} size={36} />
         <span className="lb-name">
           <span className="lb-name-main">
             {you && <span className="lb-you-label">{t('leaderboardYou')} · </span>}
@@ -106,9 +106,9 @@ export function LeaderboardPage() {
             you
             entry={{
               place: me.place,
+              userId: user.id,
               username: user.username,
               displayName: user.displayName,
-              avatarBase64: user.avatarBase64,
               rating: me.rating,
               // W/L/D своей строки в этом эндпоинте не гоняем — показываем счёт из
               // числа партий; детально видно в профиле.

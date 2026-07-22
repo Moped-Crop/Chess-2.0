@@ -27,7 +27,6 @@ interface ConversationRow {
   id: number;
   username: string;
   display_name: string;
-  avatar_base64: string | null;
   rating: number | null;
 }
 
@@ -52,7 +51,7 @@ export function chatRouter(pool: pg.Pool, env: Env): Router {
       const uid = req.userId!;
       const friendsRes = await pool.query(
         `SELECT f.id AS friendship_id, f.requester_id, f.requester_last_read, f.addressee_last_read,
-                u.id, u.username, u.display_name, u.avatar_base64, s.rating
+                u.id, u.username, u.display_name, s.rating
          FROM friendships f
          JOIN users u
            ON u.id = CASE WHEN f.requester_id = $1 THEN f.addressee_id ELSE f.requester_id END
@@ -116,7 +115,6 @@ export function chatRouter(pool: pg.Pool, env: Env): Router {
             id: r.id,
             username: r.username,
             displayName: r.display_name,
-            avatarBase64: r.avatar_base64,
             rating: r.rating ?? 1000,
           },
           online: isOnline(r.id),

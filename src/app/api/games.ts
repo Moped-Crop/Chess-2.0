@@ -4,11 +4,11 @@ import { api } from './client';
 import type { Move, Color, GameResult } from '../../engine/types';
 import type { OnlineEndReason } from '../store/gameStore';
 
-/** Публичная карточка игрока в истории (без id — он тут не нужен). */
+/** Публичная карточка игрока в истории/партии. `id` — для ручки аватара. */
 export interface GamePlayer {
+  id: number;
   username: string;
   displayName: string;
-  avatarBase64: string | null;
   /** Может отсутствовать у ответов старого сервера. */
   rating?: number;
 }

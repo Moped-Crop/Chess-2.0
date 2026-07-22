@@ -494,6 +494,7 @@ export function attachGameSockets(io: Server, pool: pg.Pool, env: Env): void {
           timeControlId,
           ranked: ranked ?? false, // тост показывает пометку «рейтинговая» ДО принятия
           from: {
+            id: userId,
             username: me.rows[0].username,
             displayName: me.rows[0].display_name,
             rating: (me.rows[0].rating as number | null) ?? 1000,
@@ -582,7 +583,7 @@ export function attachGameSockets(io: Server, pool: pg.Pool, env: Env): void {
       }
 
       const users = await pool.query(
-        `SELECT u.id, u.username, u.display_name, u.avatar_base64, s.rating
+        `SELECT u.id, u.username, u.display_name, s.rating
          FROM users u LEFT JOIN stats s ON s.user_id = u.id
          WHERE u.id = $1 OR u.id = $2`,
         [row.white_id, row.black_id],
@@ -592,12 +593,12 @@ export function attachGameSockets(io: Server, pool: pg.Pool, env: Env): void {
         const u = byId.get(id);
         return u
           ? {
+              id,
               username: u.username,
               displayName: u.display_name,
-              avatarBase64: u.avatar_base64,
               rating: (u.rating as number | null) ?? 1000,
             }
-          : { username: '?', displayName: '?', avatarBase64: null, rating: 1000 };
+          : { id, username: '?', displayName: '?', rating: 1000 };
       };
       socket.emit('game-state', {
         gameId,

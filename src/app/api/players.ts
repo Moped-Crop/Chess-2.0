@@ -18,7 +18,6 @@ export interface PlayerCardFull {
   id: number;
   username: string;
   displayName: string;
-  avatarBase64: string | null;
   online: boolean;
   rating: number;
   peakRating: number;

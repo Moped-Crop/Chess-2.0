@@ -33,7 +33,6 @@ export interface ChatFriend {
   id: number;
   username: string;
   displayName: string;
-  avatarBase64: string | null;
   rating: number;
 }
 

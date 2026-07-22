@@ -4,13 +4,15 @@ import { useGameStore } from '../store/gameStore';
 import { formatTime } from '../clock/clock';
 import { capturedBy, materialScore } from '../material';
 import { MiniPiece } from './MiniPiece';
+import { Avatar } from './Avatar';
 import { RatingBadge } from './RatingBadge';
 import { useT } from '../i18n';
 
 /**
  * Панель игрока: аватар-фишка, имя, индикатор хода, часы, взятые фигуры.
- * Пропсы displayName/avatarBase64 необязательны: без них поведение прежнее
- * («Белые»/«Чёрные»), с ними — реальные имя и аватар (онлайн-режим).
+ * Пропсы displayName/userId необязательны: без них поведение прежнее
+ * («Белые»/«Чёрные», фишка-король), с ними — реальные имя и аватар (онлайн).
+ * `src` — свой data-URL аватара (мгновенно и свежо); `userId` — чужой (ручка).
  * `username` передаётся только там, где за панелью стоит реальный чужой
  * аккаунт — тогда имя становится ссылкой на его профиль. Хотсит, бот,
  * обучение и повтор его не передают, и ссылки там не появляется.
@@ -18,13 +20,15 @@ import { useT } from '../i18n';
 export function PlayerBar({
   color,
   displayName,
-  avatarBase64,
+  userId,
+  src,
   username,
   rating,
 }: {
   color: Color;
   displayName?: string;
-  avatarBase64?: string | null;
+  userId?: number | null;
+  src?: string | null;
   username?: string;
   /** Рейтинг реального соперника/игрока — бейдж рядом с ником (только онлайн). */
   rating?: number;
@@ -44,12 +48,13 @@ export function PlayerBar({
   const sorted = [...taken].sort((a, b) => materialScore([b]) - materialScore([a]));
 
   const name = displayName ?? (color === 'white' ? t('white') : t('black'));
+  const realAccount = src != null || userId != null;
 
   return (
     <div className={`player ${active ? 'active' : ''}`}>
       <div className="player-main">
-        {avatarBase64 ? (
-          <img className="avatar player-avatar-img" src={avatarBase64} alt="" width={36} height={36} />
+        {realAccount ? (
+          <Avatar userId={userId} src={src} name={name} size={36} />
         ) : (
           <span className={`player-avatar ${color}`}>
             <MiniPiece type="K" color={color} size={22} />

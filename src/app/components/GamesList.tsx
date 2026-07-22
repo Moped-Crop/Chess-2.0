@@ -3,7 +3,7 @@ import type { Color, GameResult } from '../../engine/types';
 import type { GamePlayer } from '../api/games';
 import { presetById } from '../clock/clock';
 import { useT, useLang } from '../i18n';
-import { Avatar } from '../pages/MenuPage';
+import { Avatar } from './Avatar';
 import { RatingBadge } from './RatingBadge';
 
 /** Строка списка — с точки зрения игрока, чью историю смотрим. */
@@ -94,11 +94,7 @@ export function GamesList({
               {g.isRanked && <DeltaTag delta={g.ratingDelta} />}
             </span>
             <Link className="friend-link history-player" to={`/players/${g.opponent.username}`}>
-              <Avatar
-                avatarBase64={g.opponent.avatarBase64}
-                name={g.opponent.displayName}
-                size={36}
-              />
+              <Avatar userId={g.opponent.id} name={g.opponent.displayName} size={36} />
               <span className="friend-name">
                 {g.opponent.displayName}{' '}
                 <span className="friend-username">@{g.opponent.username}</span>

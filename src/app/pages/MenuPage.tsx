@@ -4,35 +4,7 @@ import { useGameStore } from '../store/gameStore';
 import { useChatStore, totalUnread, badgeText } from '../store/chatStore';
 import { useT, useLang } from '../i18n';
 import { Brand } from '../components/Brand';
-
-/** Аватар-кружок: картинка пользователя или инициал. */
-export function Avatar({
-  avatarBase64,
-  name,
-  size = 40,
-}: {
-  avatarBase64: string | null | undefined;
-  name: string;
-  size?: number;
-}) {
-  if (avatarBase64) {
-    return (
-      <img
-        className="avatar"
-        src={avatarBase64}
-        alt=""
-        width={size}
-        height={size}
-        style={{ width: size, height: size }}
-      />
-    );
-  }
-  return (
-    <span className="avatar avatar-letter" style={{ width: size, height: size, fontSize: size * 0.42 }}>
-      {name.slice(0, 1).toUpperCase()}
-    </span>
-  );
-}
+import { Avatar } from '../components/Avatar';
 
 /** Главное меню после входа. */
 export function MenuPage() {
@@ -106,7 +78,7 @@ export function MenuPage() {
       </header>
 
       <div className="menu-user card">
-        <Avatar avatarBase64={user.avatarBase64} name={user.displayName} size={44} />
+        <Avatar src={user.avatarBase64} userId={user.id} name={user.displayName} size={44} />
         <div className="menu-user-info">
           <span className="menu-user-name">
             {t('menuGreeting')} {user.displayName}

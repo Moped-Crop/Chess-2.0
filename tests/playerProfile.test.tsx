@@ -28,7 +28,6 @@ const BOB: PlayerCard = {
   id: 2,
   username: 'bob',
   displayName: 'Боб',
-  avatarBase64: null,
   online: true,
   rating: 1150,
   peakRating: 1200,

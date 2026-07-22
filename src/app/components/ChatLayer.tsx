@@ -6,13 +6,13 @@ import { useChatStore } from '../store/chatStore';
 import { connectSocket } from '../net/socket';
 import { checkSound } from '../sound';
 import { useT } from '../i18n';
-import { Avatar } from '../pages/MenuPage';
+import { Avatar } from './Avatar';
 import type { ChatMessage, InviteStatus, Reaction } from '../api/chat';
 
 interface MessageToast {
   friendshipId: number;
   name: string;
-  avatarBase64: string | null;
+  userId: number | null;
   preview: string;
 }
 
@@ -57,7 +57,7 @@ export function ChatLayer() {
       setToast({
         friendshipId: msg.friendshipId,
         name: conversation?.friend.displayName ?? '',
-        avatarBase64: conversation?.friend.avatarBase64 ?? null,
+        userId: conversation?.friend.id ?? null,
         preview: msg.kind === 'invite' ? t('chatInvitePreview') : msg.body,
       });
       if (timerRef.current !== null) window.clearTimeout(timerRef.current);
@@ -101,7 +101,7 @@ export function ChatLayer() {
         navigate(`/chats/${toast.friendshipId}`);
       }}
     >
-      <Avatar avatarBase64={toast.avatarBase64} name={toast.name} size={36} />
+      <Avatar userId={toast.userId} name={toast.name} size={36} />
       <span className="invite-text chat-toast-text">
         <b>{toast.name}</b>
         <span className="chat-toast-preview">{toast.preview}</span>

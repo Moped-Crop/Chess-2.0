@@ -17,9 +17,9 @@ import { useT, type StrKey } from '../i18n';
 import type { ClockState } from '../clock/clock';
 
 interface PlayerInfo {
+  id: number;
   username: string;
   displayName: string;
-  avatarBase64: string | null;
   rating: number;
 }
 
@@ -111,7 +111,7 @@ export function OnlineGamePage() {
         myColor: p.myColor,
         opponent: {
           displayName: p.players[oppColor].displayName,
-          avatarBase64: p.players[oppColor].avatarBase64,
+          userId: p.players[oppColor].id,
         },
         moves: p.moves,
         result: 'ongoing',
@@ -242,7 +242,7 @@ export function OnlineGamePage() {
           <PlayerBar
             color={oppColor}
             displayName={opp?.displayName}
-            avatarBase64={opp?.avatarBase64}
+            userId={opp?.id}
             username={opp?.username}
             rating={opp?.rating}
           />
@@ -252,7 +252,8 @@ export function OnlineGamePage() {
           <PlayerBar
             color={myColor ?? 'white'}
             displayName={me?.displayName ?? user?.displayName}
-            avatarBase64={me?.avatarBase64 ?? user?.avatarBase64}
+            src={user?.avatarBase64}
+            userId={me?.id ?? user?.id}
             rating={me?.rating}
           />
         </div>

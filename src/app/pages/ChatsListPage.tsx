@@ -4,7 +4,7 @@ import { useChatStore, badgeText } from '../store/chatStore';
 import type { ChatMessage } from '../api/chat';
 import { useT } from '../i18n';
 import { PageShell } from './PageShell';
-import { Avatar } from './MenuPage';
+import { Avatar } from '../components/Avatar';
 import { RatingBadge } from '../components/RatingBadge';
 
 /** Короткое превью последнего сообщения в строке беседы. */
@@ -38,7 +38,7 @@ export function ChatsListPage() {
         {conversations.map((c) => (
           <Link key={c.friendshipId} className="chat-row" to={`/chats/${c.friendshipId}`}>
             <span className="chat-row-avatar">
-              <Avatar avatarBase64={c.friend.avatarBase64} name={c.friend.displayName} size={40} />
+              <Avatar userId={c.friend.id} name={c.friend.displayName} size={40} />
               {c.unreadCount > 0 && (
                 <span className="unread-badge unread-badge-corner">
                   {badgeText(c.unreadCount)}

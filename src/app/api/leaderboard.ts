@@ -5,9 +5,9 @@ import type { RankedStats } from './players';
 
 export interface LeaderboardEntry {
   place: number;
+  userId: number;
   username: string;
   displayName: string;
-  avatarBase64: string | null;
   rating: number;
   ranked: RankedStats;
 }

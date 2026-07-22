@@ -19,9 +19,9 @@ const PAGE_SIZE = 25;
 const MIN_RANKED = 5;
 
 interface Row {
+  id: number;
   username: string;
   display_name: string;
-  avatar_base64: string | null;
   rating: number;
   ranked_games_played: number;
   ranked_wins: number;
@@ -41,7 +41,7 @@ export function leaderboardRouter(pool: pg.Pool, env: Env): Router {
 
       // Одна лишняя строка сверх страницы — так узнаём hasMore без COUNT.
       const r = await pool.query(
-        `SELECT u.username, u.display_name, u.avatar_base64,
+        `SELECT u.id, u.username, u.display_name,
                 s.rating, s.ranked_games_played, s.ranked_wins, s.ranked_losses, s.ranked_draws
          FROM stats s JOIN users u ON u.id = s.user_id
          WHERE u.deleted_at IS NULL AND s.ranked_games_played >= $1
@@ -52,9 +52,9 @@ export function leaderboardRouter(pool: pg.Pool, env: Env): Router {
       const rows = (r.rows as Row[]).slice(0, PAGE_SIZE);
       const entries = rows.map((row, i) => ({
         place: offset + i + 1,
+        userId: row.id,
         username: row.username,
         displayName: row.display_name,
-        avatarBase64: row.avatar_base64,
         rating: row.rating,
         ranked: {
           gamesPlayed: row.ranked_games_played,

@@ -77,15 +77,15 @@ export function gamesRouter(pool: pg.Pool, env: Env): Router {
         return;
       }
       const users = await pool.query(
-        'SELECT id, username, display_name, avatar_base64 FROM users WHERE id = $1 OR id = $2',
+        'SELECT id, username, display_name FROM users WHERE id = $1 OR id = $2',
         [g.white_id, g.black_id],
       );
       const byId = new Map(users.rows.map((u) => [u.id as number, u]));
       const pub = (userId: number) => {
         const u = byId.get(userId);
         return u
-          ? { username: u.username, displayName: u.display_name, avatarBase64: u.avatar_base64 }
-          : { username: '?', displayName: '?', avatarBase64: null };
+          ? { id: userId, username: u.username, displayName: u.display_name }
+          : { id: userId, username: '?', displayName: '?' };
       };
       res.json({
         id: g.id,

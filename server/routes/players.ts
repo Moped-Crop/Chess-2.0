@@ -19,7 +19,6 @@ interface PlayerRow {
   id: number;
   username: string;
   display_name: string;
-  avatar_base64: string | null;
   deleted_at: Date | string | null;
 }
 
@@ -40,7 +39,7 @@ export function playersRouter(pool: pg.Pool, env: Env): Router {
       return null;
     }
     const r = await pool.query(
-      'SELECT id, username, display_name, avatar_base64, deleted_at FROM users WHERE username = $1',
+      'SELECT id, username, display_name, deleted_at FROM users WHERE username = $1',
       [username],
     );
     if ((r.rowCount ?? 0) === 0) {
@@ -89,7 +88,6 @@ export function playersRouter(pool: pg.Pool, env: Env): Router {
         id: u.id,
         username: u.username,
         displayName: u.display_name,
-        avatarBase64: u.avatar_base64,
         online: isOnline(u.id),
         rating: st?.rating ?? 1000,
         peakRating: st?.peak_rating ?? 1000,

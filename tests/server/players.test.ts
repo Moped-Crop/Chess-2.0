@@ -28,7 +28,7 @@ describe('GET /api/players/:username', () => {
       id: bob.id,
       username: 'bob',
       displayName: 'Боб',
-      avatarBase64: null,
+      // Аватар в ответе больше не вкладывается — тянется /api/avatars/:id.
       // Сокетов в тесте нет — офлайн.
       online: false,
       rating: 1000,

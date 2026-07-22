@@ -7,7 +7,7 @@ import { connectSocket } from '../net/socket';
 import { presetById } from '../clock/clock';
 import { useT, useLang, type StrKey } from '../i18n';
 import { PageShell } from './PageShell';
-import { Avatar } from './MenuPage';
+import { Avatar } from '../components/Avatar';
 import { EmojiPicker } from '../components/EmojiPicker';
 import { RatingBadge } from '../components/RatingBadge';
 import { TimeControlPicker } from '../components/TimeControlPicker';
@@ -263,7 +263,7 @@ export function ChatThreadPage() {
         <div className="chat-header">
           {friend ? (
             <Link className="friend-link" to={`/players/${friend.username}`}>
-              <Avatar avatarBase64={friend.avatarBase64} name={friend.displayName} size={36} />
+              <Avatar userId={friend.id} name={friend.displayName} size={36} />
               <span className="friend-name">
                 {friend.displayName} <span className="friend-username">@{friend.username}</span>
                 <RatingBadge rating={friend.rating} />

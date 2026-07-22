@@ -226,6 +226,7 @@ export function attachChatSockets(io: Server, pool: pg.Pool, env: Env): void {
           timeControlId,
           ranked: isRanked,
           from: {
+            id: userId,
             username: me.rows[0].username,
             displayName: me.rows[0].display_name,
             rating: (me.rows[0].rating as number | null) ?? 1000,

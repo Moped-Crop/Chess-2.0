@@ -19,16 +19,16 @@ interface HistoryRow {
   is_ranked: boolean;
   white_rating_delta: number | null;
   black_rating_delta: number | null;
+  opponent_id: number;
   username: string;
   display_name: string;
-  avatar_base64: string | null;
   opp_rating: number | null;
 }
 
 export interface HistoryGame {
   id: number;
   /** Соперник ИМЕННО этого игрока (может оказаться и самим зрителем). */
-  opponent: { username: string; displayName: string; avatarBase64: string | null; rating: number };
+  opponent: { id: number; username: string; displayName: string; rating: number };
   /** Цвет игрока, чью историю смотрим, — от него считается победа/поражение. */
   playerColor: 'white' | 'black';
   result: string | null;
@@ -51,7 +51,7 @@ export async function listFinishedGames(
   const r = await pool.query(
     `SELECT g.id, g.result, g.win_reason, g.time_control_id, g.finished_at,
             g.white_id, g.black_id, g.is_ranked, g.white_rating_delta, g.black_rating_delta,
-            u.username, u.display_name, u.avatar_base64, s.rating AS opp_rating
+            u.id AS opponent_id, u.username, u.display_name, s.rating AS opp_rating
      FROM games g
      JOIN users u
        ON u.id = CASE WHEN g.white_id = $1 THEN g.black_id ELSE g.white_id END
@@ -68,9 +68,9 @@ export async function listFinishedGames(
       return {
         id: g.id,
         opponent: {
+          id: g.opponent_id,
           username: g.username,
           displayName: g.display_name,
-          avatarBase64: g.avatar_base64,
           rating: g.opp_rating ?? 1000,
         },
         playerColor,

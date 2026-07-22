@@ -30,7 +30,6 @@ interface FriendUserRow {
   id: number;
   username: string;
   display_name: string;
-  avatar_base64: string | null;
   rating: number | null;
 }
 
@@ -39,7 +38,7 @@ function publicUser(r: FriendUserRow) {
     id: r.id,
     username: r.username,
     displayName: r.display_name,
-    avatarBase64: r.avatar_base64,
+    // Аватар больше не вкладывается в список — клиент тянет /api/avatars/:id.
     // Ранг клиент выводит из рейтинга сам (rankFor) — по сети его не гоняем.
     rating: r.rating ?? 1000,
   };
@@ -62,7 +61,7 @@ export function friendsRouter(pool: pg.Pool, env: Env): Router {
       const uid = req.userId!;
       const rows = await pool.query(
         `SELECT f.id AS friendship_id, f.status, f.requester_id,
-                u.id, u.username, u.display_name, u.avatar_base64, s.rating
+                u.id, u.username, u.display_name, s.rating
          FROM friendships f
          JOIN users u
            ON u.id = CASE WHEN f.requester_id = $1 THEN f.addressee_id ELSE f.requester_id END

@@ -4,7 +4,7 @@ import { useAuthStore } from '../store/authStore';
 import { apiUpdateProfile, apiGetStats, type StatsResponse } from '../api/profile';
 import { useT, type StrKey } from '../i18n';
 import { PageShell } from './PageShell';
-import { Avatar } from './MenuPage';
+import { Avatar } from '../components/Avatar';
 import { StatsGrid } from '../components/StatsGrid';
 import { RatingSummary, RankedStatsGrid } from '../components/RatingSummary';
 import { errorKey } from './authShared';
@@ -105,7 +105,7 @@ export function ProfilePage() {
     <PageShell title={t('menuProfile')}>
       <div className="card profile-card">
         <div className="profile-main">
-          <Avatar avatarBase64={user.avatarBase64} name={user.displayName} size={88} />
+          <Avatar src={user.avatarBase64} userId={user.id} name={user.displayName} size={88} />
           <div className="profile-fields">
             <label className="field">
               <span className="field-label">{t('authDisplayName')}</span>
