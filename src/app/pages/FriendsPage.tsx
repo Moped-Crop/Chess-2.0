@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useChatStore, badgeText } from '../store/chatStore';
 import type { PublicUser } from '../api/auth';
 import {
   apiFriends,
@@ -11,10 +12,10 @@ import {
 } from '../api/friends';
 import { ApiError } from '../api/client';
 import { connectSocket } from '../net/socket';
-import { PRESETS } from '../clock/clock';
-import { useT, useLang, type StrKey } from '../i18n';
+import { useT, type StrKey } from '../i18n';
 import { PageShell } from './PageShell';
 import { Avatar } from './MenuPage';
+import { TimeControlPicker } from '../components/TimeControlPicker';
 
 const REFRESH_MS = 12_000;
 
@@ -35,11 +36,19 @@ export function friendErrorKey(e: unknown): StrKey {
  * Аватар и имя строки — ссылка на профиль игрока. Кнопки действий лежат
  * отдельными соседями, а не внутри ссылки, поэтому клик по ним никогда не
  * открывает профиль (stopPropagation не нужен).
+ *
+ * `unread` — личный счётчик непрочитанных ИМЕННО от этого друга (не общая
+ * сумма): маленький бейдж в углу аватара, как значки на иконках приложений.
  */
-function FriendIdentity({ user }: { user: PublicUser }) {
+function FriendIdentity({ user, unread = 0 }: { user: PublicUser; unread?: number }) {
   return (
     <Link className="friend-link" to={`/players/${user.username}`}>
-      <Avatar avatarBase64={user.avatarBase64} name={user.displayName} size={36} />
+      <span className="friend-avatar-wrap">
+        <Avatar avatarBase64={user.avatarBase64} name={user.displayName} size={36} />
+        {unread > 0 && (
+          <span className="unread-badge unread-badge-corner">{badgeText(unread)}</span>
+        )}
+      </span>
       <span className="friend-name">
         {user.displayName} <span className="friend-username">@{user.username}</span>
       </span>
@@ -50,7 +59,9 @@ function FriendIdentity({ user }: { user: PublicUser }) {
 /** Друзья: заявка по логину, входящие/исходящие, список со статусами. */
 export function FriendsPage() {
   const t = useT();
-  const lang = useLang();
+  // Личные счётчики непрочитанного берутся из того же стора, что и бейджи
+  // меню, — он уже в актуальном состоянии благодаря ChatLayer.
+  const conversations = useChatStore((s) => s.conversations);
   const [list, setList] = useState<FriendsList | null>(null);
   const [username, setUsername] = useState('');
   const [error, setError] = useState<StrKey | null>(null);
@@ -164,8 +175,20 @@ export function FriendsPage() {
           <div key={f.friendshipId} className="friend-wrap">
             <div className="friend-row">
               <span className={`online-dot ${f.online ? 'on' : ''}`} title={f.online ? t('statusOnline') : t('statusOffline')} />
-              <FriendIdentity user={f.user} />
+              <FriendIdentity
+                user={f.user}
+                unread={
+                  conversations.find((c) => c.friendshipId === f.friendshipId)?.unreadCount ?? 0
+                }
+              />
               <div className="btn-row friend-actions">
+                <Link
+                  className="btn btn-subtle"
+                  title={t('chatWriteMessage')}
+                  to={`/chats/${f.friendshipId}`}
+                >
+                  💬
+                </Link>
                 <button
                   className="btn btn-subtle"
                   disabled={invitedId === f.user.id}
@@ -183,20 +206,7 @@ export function FriendsPage() {
               </div>
             </div>
             {pickingId === f.user.id && (
-              <div className="invite-presets">
-                <span className="invite-presets-label">{t('timeControl')}</span>
-                <div className="invite-presets-btns">
-                  {PRESETS.map((p) => (
-                    <button
-                      key={p.id}
-                      className="btn btn-subtle"
-                      onClick={() => sendInvite(f.user.id, p.id)}
-                    >
-                      {lang === 'en' ? p.labelEn : p.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <TimeControlPicker onPick={(id) => sendInvite(f.user.id, id)} />
             )}
           </div>
         ))}

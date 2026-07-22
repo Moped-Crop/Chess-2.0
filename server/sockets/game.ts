@@ -18,6 +18,8 @@ import { PRESETS, presetById, switchAfterMove } from '../../src/app/clock/clock'
 import { clockFromRow, liveSnapshot, checkFlagged } from '../lib/serverClock';
 import { tryApply, reconstructState } from '../gameEngine';
 import { markOnline, markOffline, socketsOf } from '../presence';
+import { createFriendGame, areFriends } from '../lib/friendGame';
+import { markChatInviteStatus, type InviteStatus } from '../lib/chat';
 
 /* ---------- Схемы входящих событий ---------- */
 
@@ -256,6 +258,31 @@ export function attachGameSockets(io: Server, pool: pg.Pool, env: Env): void {
     io.to(`game:${row.id}`).emit('game-over', { gameId: row.id, result, reason });
   }
 
+  /**
+   * Аддитивный хук чата: если эта партия была приглашением ИЗ переписки, у
+   * карточки в чате проставляется актуальный статус и обоим участникам летит
+   * `chat:invite-status-updated` — открытый тред обновит карточку сам, даже
+   * когда решение принято не из чата, а из обычного тоста. Приглашение не из
+   * чата не находит строки и ничего не делает.
+   */
+  async function syncChatInviteCard(
+    gameId: number,
+    status: InviteStatus,
+    userIds: number[],
+  ): Promise<void> {
+    const card = await markChatInviteStatus(pool, gameId, status);
+    if (!card) return;
+    for (const uid of userIds) {
+      for (const sid of socketsOf(uid)) {
+        io.to(sid).emit('chat:invite-status-updated', {
+          messageId: card.messageId,
+          friendshipId: card.friendshipId,
+          status,
+        });
+      }
+    }
+  }
+
   function colorOf(row: GameRow, userId: number): Color | null {
     if (row.white_id === userId) return 'white';
     if (row.black_id === userId) return 'black';
@@ -315,23 +342,10 @@ export function attachGameSockets(io: Server, pool: pg.Pool, env: Env): void {
 
     /* Приглашение друга в партию. */
     on('friend-invite', inviteSchema, async ({ toUserId, timeControlId }) => {
-      const friends = await pool.query(
-        `SELECT 1 FROM friendships
-         WHERE status = 'accepted'
-           AND ((requester_id = $1 AND addressee_id = $2) OR (requester_id = $2 AND addressee_id = $1))`,
-        [userId, toUserId],
-      );
-      if ((friends.rowCount ?? 0) === 0) return;
+      if (!(await areFriends(pool, userId, toUserId))) return;
 
-      const meWhite = Math.random() < 0.5;
-      const whiteId = meWhite ? userId : toUserId;
-      const blackId = meWhite ? toUserId : userId;
-      const inserted = await pool.query(
-        `INSERT INTO games (white_id, black_id, status, time_control_id)
-         VALUES ($1, $2, 'waiting', $3) RETURNING id`,
-        [whiteId, blackId, timeControlId],
-      );
-      const gameId = inserted.rows[0].id as number;
+      // Та же функция создаёт партию и для приглашения из чата (chat:invite).
+      const { gameId } = await createFriendGame(pool, userId, toUserId, timeControlId);
 
       const me = await pool.query('SELECT username, display_name FROM users WHERE id = $1', [
         userId,
@@ -374,6 +388,7 @@ export function attachGameSockets(io: Server, pool: pg.Pool, env: Env): void {
       for (const uid of [row.white_id, row.black_id]) {
         for (const sid of socketsOf(uid)) io.to(sid).emit('invite-accepted', { gameId });
       }
+      await syncChatInviteCard(gameId, 'accepted', [row.white_id, row.black_id]);
     });
 
     on('invite-declined', gameIdSchema, async ({ gameId }) => {
@@ -384,6 +399,7 @@ export function attachGameSockets(io: Server, pool: pg.Pool, env: Env): void {
       ]);
       const other = row.white_id === userId ? row.black_id : row.white_id;
       for (const sid of socketsOf(other)) io.to(sid).emit('invite-declined', { gameId });
+      await syncChatInviteCard(gameId, 'declined', [row.white_id, row.black_id]);
     });
 
     /* Вход в партию (первый заход и реконнект). */

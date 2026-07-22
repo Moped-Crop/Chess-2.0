@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { apiPlayer, apiPlayerGames, type PlayerCard } from '../api/players';
 import { apiFriends, apiFriendRequest, apiFriendAccept, apiFriendDecline } from '../api/friends';
@@ -14,7 +14,8 @@ import { GamesList, type GameRow } from '../components/GamesList';
 /** Отношение текущего пользователя к просматриваемому игроку. */
 type Relation =
   | { kind: 'none' }
-  | { kind: 'friends' }
+  // friendshipId нужен для ссылки в переписку с этим другом.
+  | { kind: 'friends'; friendshipId: number }
   | { kind: 'outgoing' }
   | { kind: 'incoming'; friendshipId: number };
 
@@ -73,8 +74,9 @@ export function PlayerProfilePage() {
     try {
       const list = await apiFriends();
       const byName = (e: { user: { username: string } }) => e.user.username === username;
-      if (list.friends.some(byName)) {
-        setRelation({ kind: 'friends' });
+      const friend = list.friends.find(byName);
+      if (friend) {
+        setRelation({ kind: 'friends', friendshipId: friend.friendshipId });
         return;
       }
       if (list.outgoing.some(byName)) {
@@ -146,7 +148,14 @@ export function PlayerProfilePage() {
   } else if (relation?.kind === 'outgoing') {
     relationBlock = <span className="relation-note">{t('requestSent')}</span>;
   } else if (relation?.kind === 'friends') {
-    relationBlock = <span className="relation-note">✓ {t('alreadyFriends')}</span>;
+    relationBlock = (
+      <>
+        <span className="relation-note">✓ {t('alreadyFriends')}</span>
+        <Link className="btn btn-primary" to={`/chats/${relation.friendshipId}`}>
+          💬 {t('chatWriteMessage')}
+        </Link>
+      </>
+    );
   } else if (relation?.kind === 'incoming') {
     const { friendshipId } = relation;
     relationBlock = (

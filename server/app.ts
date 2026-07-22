@@ -21,6 +21,7 @@ import { friendsRouter } from './routes/friends';
 import { playersRouter } from './routes/players';
 import { accountRouter } from './routes/account';
 import { gamesRouter } from './routes/games';
+import { chatRouter } from './routes/chat';
 import { createMailer, type Mailer } from './lib/mailer';
 
 export interface AppDeps {
@@ -80,6 +81,7 @@ export function createApp({ pool, env, mailer }: AppDeps): express.Express {
   app.use('/api/players', playersRouter(pool, env));
   app.use('/api/account', accountRouter(pool, env, mail));
   app.use('/api/games', gamesRouter(pool, env));
+  app.use('/api/chat', chatRouter(pool, env));
 
   // Продакшен: этот же процесс отдаёт собранный фронтенд из dist/.
   if (env.isProd) {

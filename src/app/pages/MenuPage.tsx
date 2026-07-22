@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useGameStore } from '../store/gameStore';
+import { useChatStore, totalUnread, badgeText } from '../store/chatStore';
 import { useT, useLang } from '../i18n';
 import { Brand } from '../components/Brand';
 
@@ -43,15 +44,25 @@ export function MenuPage() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
+  // Общее число непрочитанных по всем беседам — держится актуальным ChatLayer.
+  const unread = useChatStore((s) => totalUnread(s.conversations));
 
   if (!user) return null;
 
-  const items = [
+  const items: Array<{
+    to: string;
+    title: string;
+    sub: string;
+    icon: string;
+    /** Число непрочитанных сообщений; 0 или undefined — бейджа нет. */
+    badge?: number;
+  }> = [
     { to: '/play/local', title: t('menuLocal'), sub: t('menuLocalSub'), icon: '♟' },
     { to: '/friends?invite=1', title: t('menuOnline'), sub: t('menuOnlineSub'), icon: '⚔' },
     { to: '/play/bot/setup', title: t('menuBot'), sub: t('menuBotSub'), icon: '🤖' },
     { to: '/how-to-play', title: t('menuHowTo'), sub: t('menuHowToSub'), icon: '🎓' },
-    { to: '/friends', title: t('menuFriends'), sub: t('menuFriendsSub'), icon: '👥' },
+    { to: '/chats', title: t('menuChats'), sub: t('menuChatsSub'), icon: '💬', badge: unread },
+    { to: '/friends', title: t('menuFriends'), sub: t('menuFriendsSub'), icon: '👥', badge: unread },
     { to: '/history', title: t('historyTitle'), sub: t('menuHistorySub'), icon: '📜' },
     { to: '/profile', title: t('menuProfile'), sub: t('menuProfileSub'), icon: '★' },
   ];
@@ -116,6 +127,7 @@ export function MenuPage() {
             <span className="menu-item-icon" aria-hidden>
               {it.icon}
             </span>
+            {!!it.badge && <span className="unread-badge menu-badge">{badgeText(it.badge)}</span>}
             <span className="menu-item-title">{it.title}</span>
             <span className="menu-item-sub">{it.sub}</span>
           </Link>

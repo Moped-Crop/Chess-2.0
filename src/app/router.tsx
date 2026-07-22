@@ -24,7 +24,10 @@ import { GameReplayPage } from './pages/GameReplayPage';
 import { HowToPlayPage } from './pages/HowToPlayPage';
 import { BotSetupPage } from './pages/BotSetupPage';
 import { BotGamePage } from './pages/BotGamePage';
+import { ChatsListPage } from './pages/ChatsListPage';
+import { ChatThreadPage } from './pages/ChatThreadPage';
 import { InviteLayer } from './components/InviteLayer';
+import { ChatLayer } from './components/ChatLayer';
 import { useAuthStore } from './store/authStore';
 import { useGameStore } from './store/gameStore';
 import { useT } from './i18n';
@@ -77,6 +80,7 @@ export function AppRouter() {
   return (
     <>
       <InviteLayer />
+      <ChatLayer />
       <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
@@ -114,6 +118,23 @@ export function AppRouter() {
         element={
           <RequireAuth>
             <FriendsPage />
+          </RequireAuth>
+        }
+      />
+      {/* Переписка с друзьями: список бесед и отдельный тред. */}
+      <Route
+        path="/chats"
+        element={
+          <RequireAuth>
+            <ChatsListPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/chats/:friendshipId"
+        element={
+          <RequireAuth>
+            <ChatThreadPage />
           </RequireAuth>
         }
       />
