@@ -1653,7 +1653,7 @@ h3,
 
 .auth-card {
   width: 100%;
-  max-width: 400px;
+  max-width: 420px;
   padding: 28px;
 }
 
@@ -2943,22 +2943,7 @@ h3,
 .auth-lang {
   display: flex;
   justify-content: center;
-  gap: 6px;
-  margin-bottom: 14px;
-}
-.auth-lang button {
-  padding: 4px 12px;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  color: var(--text-dim);
-  border-radius: var(--radius-sm);
-  font-size: var(--fs-sm);
-  font-weight: 650;
-  cursor: pointer;
-}
-.auth-lang button.active {
-  border-color: var(--accent-strong);
-  color: var(--accent-strong);
+  margin-bottom: var(--sp-4);
 }
 
 /* --- Экран-предложение включить 2FA после регистрации --- */
@@ -4822,4 +4807,10 @@ h3,
 /* --- Рейтинговый поиск --- */
 .ranked-topcard {
   margin-bottom: var(--sp-4);
+}
+
+/* --- Экран партии: текущий ход в списке ходов --- */
+.move-cell.current {
+  background: var(--accent-soft);
+  color: var(--text);
 }

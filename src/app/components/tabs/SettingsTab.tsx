@@ -1,10 +1,11 @@
 import { useGameStore, type Orientation } from '../../store/gameStore';
 import { PRESETS } from '../../clock/clock';
 import { useT, useLang } from '../../i18n';
-import { LanguageField, BoardThemeField, SoundFields } from './settingsFields';
+import { BoardThemeField, SoundFields } from './settingsFields';
 
-/** Вкладка «Настройки» локальной игры: язык, контроль времени, ориентация,
- *  тема, звук. Общие поля вынесены в settingsFields (их использует и
+/** Вкладка «Настройки» локальной игры: контроль времени, ориентация, тема,
+ *  звук. Смена языка убрана — она есть в верхней панели (RU/EN), которая видна
+ *  постоянно. Общие поля вынесены в settingsFields (их использует и
  *  OnlineSettingsTab), здесь остаются специфичные для локального режима. */
 export function SettingsTab() {
   const t = useT();
@@ -22,8 +23,6 @@ export function SettingsTab() {
 
   return (
     <div className="tab-panel">
-      <LanguageField />
-
       <label className="field">
         <span className="field-label">{t('timeControl')}</span>
         <select className="select" value={presetId} onChange={(e) => setPreset(e.target.value)}>

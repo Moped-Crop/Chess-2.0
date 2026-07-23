@@ -3,9 +3,10 @@
 import type { ReactNode } from 'react';
 import { ApiError } from '../api/client';
 import { Brand } from '../components/Brand';
-import type { StrKey } from '../i18n';
+import type { Lang, StrKey } from '../i18n';
 import { useLang } from '../i18n';
 import { useGameStore } from '../store/gameStore';
+import { SegmentedControl, type SegOption } from '../components/ui';
 
 /** Код ошибки API → ключ перевода для показа пользователю. */
 export function errorKey(e: unknown): StrKey {
@@ -41,26 +42,18 @@ export function errorKey(e: unknown): StrKey {
   return 'errUnknown';
 }
 
+const LANG_OPTIONS: SegOption<Lang>[] = [
+  { value: 'ru', label: 'RU' },
+  { value: 'en', label: 'EN' },
+];
+
 /** Переключатель языка (RU/EN) для экранов входа/регистрации. */
 function AuthLangSwitch() {
   const lang = useLang();
   const setLang = useGameStore((s) => s.setLang);
   return (
     <div className="auth-lang">
-      <button
-        className={lang === 'ru' ? 'active' : ''}
-        onClick={() => setLang('ru')}
-        type="button"
-      >
-        RU
-      </button>
-      <button
-        className={lang === 'en' ? 'active' : ''}
-        onClick={() => setLang('en')}
-        type="button"
-      >
-        EN
-      </button>
+      <SegmentedControl options={LANG_OPTIONS} value={lang} onChange={setLang} ariaLabel="Language" />
     </div>
   );
 }

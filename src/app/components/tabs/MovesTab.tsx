@@ -4,10 +4,10 @@ import type { MoveEntry } from '../../notation';
 import { MiniPiece } from '../MiniPiece';
 import { useT } from '../../i18n';
 
-function MoveCell({ entry }: { entry?: MoveEntry }) {
+function MoveCell({ entry, current }: { entry?: MoveEntry; current?: boolean }) {
   if (!entry) return <span className="move-cell empty" />;
   return (
-    <span className="move-cell">
+    <span className={`move-cell ${current ? 'current' : ''}`}>
       <MiniPiece type={entry.pieceType} color={entry.color} size={20} />
       <span className="move-san">{entry.san}</span>
     </span>
@@ -33,6 +33,7 @@ export function MovesTab() {
     );
   }
 
+  const lastIndex = log.length - 1;
   const rows: { n: number; white: MoveEntry; black?: MoveEntry }[] = [];
   for (let i = 0; i < log.length; i += 2) {
     rows.push({ n: i / 2 + 1, white: log[i], black: log[i + 1] });
@@ -41,11 +42,11 @@ export function MovesTab() {
   return (
     <div className="tab-panel">
       <div className="moves" ref={listRef}>
-        {rows.map((r) => (
+        {rows.map((r, ri) => (
           <div className="move-row" key={r.n}>
             <span className="move-no">{r.n}</span>
-            <MoveCell entry={r.white} />
-            <MoveCell entry={r.black} />
+            <MoveCell entry={r.white} current={ri * 2 === lastIndex} />
+            <MoveCell entry={r.black} current={ri * 2 + 1 === lastIndex} />
           </div>
         ))}
       </div>
