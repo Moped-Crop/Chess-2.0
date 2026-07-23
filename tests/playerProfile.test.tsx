@@ -188,7 +188,7 @@ describe('PlayerProfilePage', () => {
     expect(screen.getByText('Победа')).toBeTruthy();
     expect(screen.getByText('Кэрол')).toBeTruthy();
     // Повтор открывается «от Боба»: доска его стороной, назад — в его профиль.
-    expect(document.querySelector('.history-open')?.getAttribute('href')).toBe(
+    expect(document.querySelector('.hist-open')?.getAttribute('href')).toBe(
       '/history/42?from=bob',
     );
     // Соперник по той партии — тоже кликабелен.

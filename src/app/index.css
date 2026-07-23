@@ -4553,3 +4553,273 @@ h3,
     max-width: 82%;
   }
 }
+
+/* ============================================================
+   Экраны: История, Лидерборд, Рейтинговый поиск (фаза 6)
+   ============================================================ */
+
+/* --- История партий: одна горизонтальная строка --- */
+.hist-list {
+  display: flex;
+  flex-direction: column;
+}
+.hist-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 64px;
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+.hist-list > .hist-row:last-child {
+  border-bottom: none;
+}
+.hist-open {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-sm);
+}
+.hist-player {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+}
+.hist-player-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+.hist-name {
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hist-badges {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  flex: 0 0 auto;
+}
+.hist-result {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex: 0 0 auto;
+  margin-left: var(--sp-4);
+}
+.hist-outcome {
+  font-weight: 700;
+}
+.hist-outcome.win {
+  color: var(--success);
+}
+.hist-outcome.loss {
+  color: var(--danger);
+}
+.hist-outcome.draw {
+  color: var(--text-dim);
+}
+.hist-date {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.hist-more {
+  margin-top: var(--sp-4);
+}
+
+@media (max-width: 640px) {
+  .hist-row {
+    flex-wrap: wrap;
+  }
+  .hist-badges {
+    order: 3;
+    margin-left: 48px;
+  }
+  .hist-result {
+    margin-left: auto;
+  }
+}
+
+/* --- Лидерборд --- */
+.lb-card {
+  margin-bottom: var(--sp-4);
+}
+.lb-podium {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+.lb-podium-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-5) var(--sp-4);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 2px solid var(--border);
+  color: inherit;
+  text-align: center;
+  min-width: 0;
+}
+.lb-podium-card.medal-gold {
+  border-color: var(--medal-gold);
+}
+.lb-podium-card.medal-silver {
+  border-color: var(--medal-silver);
+}
+.lb-podium-card.medal-bronze {
+  border-color: var(--medal-bronze);
+}
+.lb-podium-card.lb-you-card {
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.lb-podium-place {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--fs-lg);
+}
+.medal-gold .lb-podium-place {
+  color: var(--medal-gold);
+}
+.medal-silver .lb-podium-place {
+  color: var(--medal-silver);
+}
+.medal-bronze .lb-podium-place {
+  color: var(--medal-bronze);
+}
+.lb-podium-name {
+  font-weight: 650;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lb-podium-rating {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--fs-xl);
+  font-variant-numeric: tabular-nums;
+}
+
+.lb-table-wrap {
+  overflow-x: auto;
+}
+.lb-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.lb-table th {
+  text-align: left;
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  border-bottom: 1px solid var(--border);
+}
+.lb-table td {
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+}
+.lb-table th.num,
+.lb-table td.num {
+  text-align: right;
+}
+.lb-table tbody tr:nth-child(even) {
+  background: var(--surface-2);
+}
+.lb-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.lb-table tbody tr.lb-you-row {
+  background: var(--accent-soft);
+}
+.lb-place {
+  color: var(--text-dim);
+  font-weight: 700;
+}
+.lb-tname {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: inherit;
+  min-width: 0;
+}
+.lb-tname-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lb-trating {
+  font-weight: 750;
+}
+.lb-you-pinned {
+  position: sticky;
+  bottom: var(--sp-3);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  border: 1px solid var(--accent);
+  box-shadow: var(--shadow-2);
+}
+.lb-you-label {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent-strong);
+}
+.lb-you-name {
+  flex: 1;
+  font-weight: 650;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lb-more {
+  margin-top: var(--sp-4);
+}
+.lb-skel {
+  display: flex;
+  flex-direction: column;
+}
+.lb-skel-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 44px;
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+.lb-skel-row:last-child {
+  border-bottom: none;
+}
+
+@media (max-width: 560px) {
+  .lb-podium {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Рейтинговый поиск --- */
+.ranked-topcard {
+  margin-bottom: var(--sp-4);
+}

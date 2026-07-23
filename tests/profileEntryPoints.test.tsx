@@ -91,7 +91,7 @@ describe('entry points to a player profile', () => {
     expect(await screen.findByText('Боб')).toBeTruthy();
     expect(linkAround('Боб')).toBe('/players/bob');
     // Растянутая ссылка строки по-прежнему ведёт на повтор партии.
-    expect(document.querySelector('.history-open')?.getAttribute('href')).toBe('/history/42');
+    expect(document.querySelector('.hist-open')?.getAttribute('href')).toBe('/history/42');
     // Бейдж результата не должен утаскивать на профиль.
     expect(screen.getByText('Победа').closest('a')).toBeNull();
   });

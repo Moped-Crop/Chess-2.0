@@ -5,6 +5,7 @@ import { presetById } from '../clock/clock';
 import { useT, useLang } from '../i18n';
 import { Avatar } from './Avatar';
 import { RatingBadge } from './RatingBadge';
+import { Badge, Button, Skeleton } from './ui';
 
 /** Строка списка — с точки зрения игрока, чью историю смотрим. */
 export interface GameRow {
@@ -78,43 +79,63 @@ export function GamesList({
 
   return (
     <>
-      {loading && games.length === 0 && <p className="page-loader">{t('loading')}</p>}
+      {loading && games.length === 0 && (
+        <div className="hist-list">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div className="hist-row" key={i}>
+              <span className="hist-player">
+                <Skeleton w={36} h={36} circle />
+                <span className="hist-player-text">
+                  <Skeleton w={120} h={15} />
+                  <Skeleton w={80} h={13} />
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
       {!loading && games.length === 0 && <p className="friends-empty">{emptyText}</p>}
-      {games.map((g) => {
-        const b = badge(g);
-        return (
-          // Строка ведёт на повтор партии, а имя соперника — на его профиль.
-          // Вложить ссылку в ссылку нельзя, поэтому строка — обычный div, а
-          // переход к повтору делает растянутая на всю строку ссылка под
-          // содержимым; ссылка на профиль лежит поверх неё.
-          <div key={g.id} className="history-row">
-            <Link className="history-open" to={replayTo(g.id)} aria-label={t('openGame')} />
-            <span className={`history-badge ${b.cls}`}>
-              {b.label}
-              {g.isRanked && <DeltaTag delta={g.ratingDelta} />}
-            </span>
-            <Link className="friend-link history-player" to={`/players/${g.opponent.username}`}>
-              <Avatar userId={g.opponent.id} name={g.opponent.displayName} size={36} />
-              <span className="friend-name">
-                {g.opponent.displayName}{' '}
-                <span className="friend-username">@{g.opponent.username}</span>
-                {g.opponent.rating !== undefined && <RatingBadge rating={g.opponent.rating} />}
-              </span>
-            </Link>
-            <span className="history-meta">
-              <span className={`game-kind-badge ${g.isRanked ? 'ranked' : 'casual'}`}>
-                {g.isRanked ? t('ratedBadge') : t('casualBadge')}
-              </span>
-              <span>{tcLabel(g.timeControlId)}</span>
-              <span className="history-date">{dateLabel(g.finishedAt)}</span>
-            </span>
-          </div>
-        );
-      })}
+      {games.length > 0 && (
+        <div className="hist-list">
+          {games.map((g) => {
+            const b = badge(g);
+            return (
+              // Строка ведёт на повтор партии (растянутая ссылка под содержимым),
+              // а имя соперника — на его профиль (ссылка поверх). Вложить ссылку
+              // в ссылку нельзя, поэтому строка — div.
+              <div key={g.id} className="hist-row">
+                <Link className="hist-open" to={replayTo(g.id)} aria-label={t('openGame')} />
+                <Link className="hist-player" to={`/players/${g.opponent.username}`}>
+                  <Avatar userId={g.opponent.id} name={g.opponent.displayName} size={36} />
+                  <span className="hist-player-text">
+                    <span className="hist-name">{g.opponent.displayName}</span>
+                    {g.opponent.rating !== undefined && (
+                      <span className="hist-sub">
+                        <RatingBadge rating={g.opponent.rating} />
+                      </span>
+                    )}
+                  </span>
+                </Link>
+                <div className="hist-badges">
+                  <Badge tone="neutral">{tcLabel(g.timeControlId)}</Badge>
+                  <Badge tone={g.isRanked ? 'accent' : 'neutral'}>
+                    {g.isRanked ? t('ratedBadge') : t('casualBadge')}
+                  </Badge>
+                </div>
+                <div className="hist-result">
+                  <span className={`hist-outcome ${b.cls}`}>{b.label}</span>
+                  {g.isRanked && <DeltaTag delta={g.ratingDelta} />}
+                  <span className="hist-date">{dateLabel(g.finishedAt)}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
       {hasMore && (
-        <button className="btn btn-subtle btn-block" onClick={onMore}>
+        <Button variant="secondary" block onClick={onMore} className="hist-more">
           {t('historyMore')}
-        </button>
+        </Button>
       )}
     </>
   );

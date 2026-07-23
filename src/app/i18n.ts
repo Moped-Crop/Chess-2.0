@@ -323,6 +323,9 @@ const STRINGS = {
     leaderboardEmpty: 'Пока никто не сыграл достаточно рейтинговых партий.',
     leaderboardQualify: 'Сыграйте ещё {games}, чтобы попасть в таблицу',
     leaderboardYourPlace: 'Ваше место',
+    lbColPlayer: 'Игрок',
+    lbColGames: 'Партии',
+    lbColRecord: 'В/П/Н',
   },
   en: {
     help: 'How to play?',
@@ -638,6 +641,9 @@ const STRINGS = {
     leaderboardEmpty: 'No one has played enough ranked games yet.',
     leaderboardQualify: 'Play {games} to enter the table',
     leaderboardYourPlace: 'Your place',
+    lbColPlayer: 'Player',
+    lbColGames: 'Games',
+    lbColRecord: 'W/L/D',
   },
 } satisfies Record<Lang, Record<string, string>>;
 

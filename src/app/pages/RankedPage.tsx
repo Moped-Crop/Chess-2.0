@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Check, Search } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { apiGetStats, type StatsResponse } from '../api/profile';
 import { connectSocket } from '../net/socket';
 import { PRESETS } from '../clock/clock';
 import { useT, useLang, type StrKey } from '../i18n';
 import { PageShell } from './PageShell';
-import { RatingSummary } from '../components/RatingSummary';
+import { PlayerRatingCard } from '../components/PlayerRatingCard';
+import { Card, Button } from '../components/ui';
 
 type Phase = 'idle' | 'searching';
 
@@ -125,41 +127,47 @@ export function RankedPage() {
     setPhase('idle');
   }
 
-  const rating = stats?.rating ?? 1000;
   const waitLabel = `${Math.floor(waitSec / 60)}:${String(waitSec % 60).padStart(2, '0')}`;
 
   return (
     <PageShell title={t('menuRanked')}>
-      {stats && (
-        <div className="card profile-card">
-          <RatingSummary
-            rating={rating}
-            peakRating={stats.peakRating}
-            rankedGamesPlayed={stats.ranked.gamesPlayed}
+      {user && (
+        <div className="ranked-topcard">
+          <PlayerRatingCard
+            userId={user.id}
+            displayName={user.displayName}
+            username={user.username}
+            avatarSrc={user.avatarBase64}
+            rating={stats ? stats.rating : null}
           />
         </div>
       )}
 
-      <div className="card profile-card">
+      <Card className="social-card">
         {phase === 'idle' ? (
           <div className="ranked-hero">
             <h3 className="section-title">{t('rankedTimeControls')}</h3>
             <div className="ranked-tc-grid">
-              {PRESETS.map((p) => (
-                <button
-                  key={p.id}
-                  className={`ranked-tc-chip ${selected.has(p.id) ? 'on' : ''}`}
-                  onClick={() => toggle(p.id)}
-                >
-                  {selected.has(p.id) ? '✓ ' : ''}
-                  {lang === 'en' ? p.labelEn : p.label}
-                </button>
-              ))}
+              {PRESETS.map((p) => {
+                const on = selected.has(p.id);
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    aria-pressed={on}
+                    className={`ranked-tc-chip ${on ? 'on' : ''}`}
+                    onClick={() => toggle(p.id)}
+                  >
+                    {on && <Check size={14} strokeWidth={2.25} aria-hidden />}
+                    {lang === 'en' ? p.labelEn : p.label}
+                  </button>
+                );
+              })}
             </div>
             {error && <p className="form-error">{t(error)}</p>}
-            <button className="btn btn-primary btn-lg btn-block" onClick={startSearch}>
-              🔍 {t('rankedFind')}
-            </button>
+            <Button variant="primary" size="lg" icon={Search} block onClick={startSearch}>
+              {t('rankedFind')}
+            </Button>
           </div>
         ) : (
           <div className="ranked-search">
@@ -169,12 +177,12 @@ export function RankedPage() {
             <span className="ranked-queue-size">
               {queueSize} {t('rankedInQueue')}
             </span>
-            <button className="btn btn-subtle btn-block" onClick={cancelSearch}>
+            <Button variant="secondary" block onClick={cancelSearch}>
               {t('rankedCancel')}
-            </button>
+            </Button>
           </div>
         )}
-      </div>
+      </Card>
     </PageShell>
   );
 }

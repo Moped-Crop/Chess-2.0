@@ -6,8 +6,7 @@ import { useT, useLang, translate } from '../i18n';
 import { PageShell } from './PageShell';
 import { Avatar } from '../components/Avatar';
 import { RatingBadge } from '../components/RatingBadge';
-
-const MEDALS: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
+import { Card, Button, Skeleton } from '../components/ui';
 
 /** Русская форма множественного числа (1 партию / 2 партии / 5 партий). */
 function ruPlural(n: number, one: string, few: string, many: string): string {
@@ -22,34 +21,42 @@ function wld(r: { wins: number; losses: number; draws: number }): string {
   return `${r.wins}–${r.losses}–${r.draws}`;
 }
 
-function Row({ entry, you }: { entry: LeaderboardEntry; you?: boolean }) {
-  const t = useT();
-  const topCls = entry.place <= 3 ? `top${entry.place}` : '';
+const MEDAL: Record<number, string> = { 1: 'gold', 2: 'silver', 3: 'bronze' };
+
+/** Карточка одного из топ-3 — медальная рамка, без свечения. */
+function PodiumCard({ entry, you }: { entry: LeaderboardEntry; you: boolean }) {
   return (
-    <Link className={`lb-row ${topCls} ${you ? 'lb-you' : ''}`} to={`/players/${entry.username}`}>
-      {entry.place <= 3 ? (
-        <span className="lb-medal" aria-hidden>
-          {MEDALS[entry.place]}
-        </span>
-      ) : (
-        <span className="lb-place">{entry.place}</span>
-      )}
-      <span className="lb-identity">
-        <Avatar userId={entry.userId} name={entry.displayName} size={36} />
-        <span className="lb-name">
-          <span className="lb-name-main">
-            {you && <span className="lb-you-label">{t('leaderboardYou')} · </span>}
-            {entry.displayName}
-          </span>
-          <span className="lb-wld">{wld(entry.ranked)}</span>
-        </span>
-      </span>
-      <RatingBadge rating={entry.rating} />
+    <Link
+      className={`lb-podium-card medal-${MEDAL[entry.place]} ${you ? 'lb-you-card' : ''}`}
+      to={`/players/${entry.username}`}
+    >
+      <span className="lb-podium-place">{entry.place}</span>
+      <Avatar userId={entry.userId} name={entry.displayName} size={56} />
+      <span className="lb-podium-name">{entry.displayName}</span>
+      <span className="lb-podium-rating">{entry.rating}</span>
     </Link>
   );
 }
 
-/** Лидерборд: топ по рейтингу, выделенные топ-3 и закреплённая своя позиция. */
+/** Строка таблицы (места с 4-го). */
+function TableRow({ entry, you }: { entry: LeaderboardEntry; you: boolean }) {
+  return (
+    <tr className={you ? 'lb-you-row' : ''}>
+      <td className="lb-place num">{entry.place}</td>
+      <td>
+        <Link className="lb-tname" to={`/players/${entry.username}`}>
+          <Avatar userId={entry.userId} name={entry.displayName} size={28} />
+          <span className="lb-tname-text">{entry.displayName}</span>
+        </Link>
+      </td>
+      <td className="num lb-trating">{entry.rating}</td>
+      <td className="num">{entry.ranked.gamesPlayed}</td>
+      <td className="num">{wld(entry.ranked)}</td>
+    </tr>
+  );
+}
+
+/** Лидерборд: топ-3 карточками, остальные таблицей, своя строка закреплена. */
 export function LeaderboardPage() {
   const t = useT();
   const lang = useLang();
@@ -81,8 +88,10 @@ export function LeaderboardPage() {
     };
   }, [page]);
 
-  // Своя строка нужна, только если игрок не попал на текущую страницу списка.
-  const meOnPage = !!user && entries.some((e) => e.username === user.username);
+  const isYou = (e: LeaderboardEntry) => !!user && e.username === user.username;
+  const meOnPage = !!user && entries.some(isYou);
+  const podium = entries.slice(0, 3);
+  const rest = entries.slice(3);
 
   let meBlock: React.ReactNode = null;
   if (me && user) {
@@ -93,49 +102,85 @@ export function LeaderboardPage() {
           ? `${n} more ranked game${n === 1 ? '' : 's'}`
           : `${n} ${ruPlural(n, 'рейтинговую партию', 'рейтинговые партии', 'рейтинговых партий')}`;
       meBlock = (
-        <div className="card friends-card lb-you">
+        <Card className="lb-qualify-card">
           <p className="lb-qualify">
             {translate(lang, 'leaderboardQualify').replace('{games}', games)}
           </p>
-        </div>
+        </Card>
       );
     } else if (!meOnPage && me.place !== null) {
       meBlock = (
-        <div className="card friends-card" style={{ padding: 0 }}>
-          <Row
-            you
-            entry={{
-              place: me.place,
-              userId: user.id,
-              username: user.username,
-              displayName: user.displayName,
-              rating: me.rating,
-              // W/L/D своей строки в этом эндпоинте не гоняем — показываем счёт из
-              // числа партий; детально видно в профиле.
-              ranked: { gamesPlayed: me.rankedGamesPlayed, wins: 0, losses: 0, draws: 0 },
-            }}
-          />
+        <div className="lb-you-pinned">
+          <span className="lb-you-label">{t('leaderboardYou')}</span>
+          <span className="lb-place num">{me.place}</span>
+          <span className="lb-you-name">{user.displayName}</span>
+          <RatingBadge rating={me.rating} />
         </div>
       );
     }
   }
 
+  const showSkeleton = loading && entries.length === 0;
+
   return (
     <PageShell title={t('leaderboardTitle')}>
-      <div className="card friends-card">
-        {loading && entries.length === 0 && <p className="page-loader">{t('loading')}</p>}
-        {!loading && entries.length === 0 && (
+      {showSkeleton && (
+        <Card className="lb-card">
+          <div className="lb-skel">
+            {Array.from({ length: 10 }, (_, i) => (
+              <div className="lb-skel-row" key={i}>
+                <Skeleton w={24} h={16} />
+                <Skeleton w={28} h={28} circle />
+                <Skeleton w="40%" h={15} />
+                <Skeleton w={48} h={15} />
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {!showSkeleton && entries.length === 0 && (
+        <Card className="lb-card">
           <p className="friends-empty">{t('leaderboardEmpty')}</p>
-        )}
-        {entries.map((e) => (
-          <Row key={e.username} entry={e} you={!!user && e.username === user.username} />
-        ))}
-        {hasMore && (
-          <button className="btn btn-subtle btn-block" onClick={() => setPage((p) => p + 1)}>
-            {t('historyMore')}
-          </button>
-        )}
-      </div>
+        </Card>
+      )}
+
+      {podium.length > 0 && (
+        <div className="lb-podium">
+          {podium.map((e) => (
+            <PodiumCard key={e.username} entry={e} you={isYou(e)} />
+          ))}
+        </div>
+      )}
+
+      {rest.length > 0 && (
+        <Card className="lb-card">
+          <div className="lb-table-wrap">
+            <table className="lb-table">
+              <thead>
+                <tr>
+                  <th className="num">#</th>
+                  <th>{t('lbColPlayer')}</th>
+                  <th className="num">{t('ratingLabel')}</th>
+                  <th className="num">{t('lbColGames')}</th>
+                  <th className="num">{t('lbColRecord')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rest.map((e) => (
+                  <TableRow key={e.username} entry={e} you={isYou(e)} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {hasMore && (
+            <Button variant="secondary" block onClick={() => setPage((p) => p + 1)} className="lb-more">
+              {t('historyMore')}
+            </Button>
+          )}
+        </Card>
+      )}
+
       {meBlock}
     </PageShell>
   );
