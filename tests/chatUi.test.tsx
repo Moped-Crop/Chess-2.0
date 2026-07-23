@@ -156,7 +156,7 @@ describe('chatStore unread bookkeeping', () => {
 });
 
 describe('entry points', () => {
-  it('menu shows the total unread badge on both Messages and Friends', () => {
+  it('menu shows the total unread badge on Friends (no separate Messages entry)', () => {
     useChatStore.setState({
       conversations: [conversation({ unreadCount: 2 }), conversation({ friendshipId: 6, unreadCount: 3 })],
       loaded: true,
@@ -167,9 +167,11 @@ describe('entry points', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('Сообщения')).toBeTruthy();
-    // Оба пункта показывают ОБЩУЮ сумму по всем беседам.
-    expect(screen.getAllByText('5')).toHaveLength(2);
+    // Чат живёт внутри «Друзей» — отдельного пункта «Сообщения» в меню больше нет.
+    expect(screen.queryByText('Сообщения')).toBeNull();
+    expect(screen.getByText('Друзья')).toBeTruthy();
+    // Общий счётчик непрочитанного (2 + 3) — на «Друзьях», в одном месте.
+    expect(screen.getAllByText('5')).toHaveLength(1);
   });
 
   it('friends list: a write button leads to the thread and shows a personal badge', async () => {

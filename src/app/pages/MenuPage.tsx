@@ -1,10 +1,40 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Swords,
+  Trophy,
+  Bot,
+  Gamepad2,
+  Users,
+  Medal,
+  GraduationCap,
+  LogOut,
+  Sun,
+  Moon,
+  type LucideIcon,
+} from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useGameStore } from '../store/gameStore';
 import { useChatStore, totalUnread, badgeText } from '../store/chatStore';
-import { useT, useLang } from '../i18n';
-import { Brand } from '../components/Brand';
-import { Avatar } from '../components/Avatar';
+import { useT, useLang, type Lang, type StrKey } from '../i18n';
+import { BrandMark } from '../components/Brand';
+import { PlayerRatingCard } from '../components/PlayerRatingCard';
+import { Card, Button, SegmentedControl, type SegOption } from '../components/ui';
+import { apiGetStats } from '../api/profile';
+
+const LANG_OPTIONS: SegOption<Lang>[] = [
+  { value: 'ru', label: 'RU' },
+  { value: 'en', label: 'EN' },
+];
+
+interface Section {
+  to: string;
+  title: StrKey;
+  sub: StrKey;
+  icon: LucideIcon;
+  /** Число непрочитанных сообщений; 0/undefined — бейджа нет. */
+  badge?: number;
+}
 
 /** Главное меню после входа. */
 export function MenuPage() {
@@ -16,97 +46,100 @@ export function MenuPage() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
-  // Общее число непрочитанных по всем беседам — держится актуальным ChatLayer.
+  // Общий счётчик непрочитанного по всем беседам — держится актуальным ChatLayer.
   const unread = useChatStore((s) => totalUnread(s.conversations));
+
+  // Рейтинг для карточки игрока; пока грузится — карточка показывает скелетон.
+  const [rating, setRating] = useState<number | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    apiGetStats(user.id)
+      .then((r) => {
+        if (!cancelled) setRating(r.rating);
+      })
+      .catch(() => {
+        /* рейтинг не критичен — карточка покажется и без него */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   if (!user) return null;
 
-  const items: Array<{
-    to: string;
-    title: string;
-    sub: string;
-    icon: string;
-    /** Число непрочитанных сообщений; 0 или undefined — бейджа нет. */
-    badge?: number;
-  }> = [
-    { to: '/play/local', title: t('menuLocal'), sub: t('menuLocalSub'), icon: '♟' },
-    { to: '/play/ranked', title: t('menuRanked'), sub: t('menuRankedSub'), icon: '🏆' },
-    { to: '/friends?invite=1', title: t('menuOnline'), sub: t('menuOnlineSub'), icon: '⚔' },
-    { to: '/leaderboard', title: t('menuLeaderboard'), sub: t('menuLeaderboardSub'), icon: '📊' },
-    { to: '/play/bot/setup', title: t('menuBot'), sub: t('menuBotSub'), icon: '🤖' },
-    { to: '/how-to-play', title: t('menuHowTo'), sub: t('menuHowToSub'), icon: '🎓' },
-    { to: '/chats', title: t('menuChats'), sub: t('menuChatsSub'), icon: '💬', badge: unread },
-    { to: '/friends', title: t('menuFriends'), sub: t('menuFriendsSub'), icon: '👥', badge: unread },
-    { to: '/history', title: t('historyTitle'), sub: t('menuHistorySub'), icon: '📜' },
-    { to: '/profile', title: t('menuProfile'), sub: t('menuProfileSub'), icon: '★' },
+  const sections: Section[] = [
+    { to: '/friends?invite=1', title: 'menuOnline', sub: 'menuOnlineSub', icon: Swords },
+    { to: '/play/ranked', title: 'menuRanked', sub: 'menuRankedSub', icon: Trophy },
+    { to: '/play/bot/setup', title: 'menuBot', sub: 'menuBotSub', icon: Bot },
+    { to: '/play/local', title: 'menuLocal', sub: 'menuLocalSub', icon: Gamepad2 },
+    { to: '/friends', title: 'menuFriends', sub: 'menuFriendsSub', icon: Users, badge: unread },
+    { to: '/leaderboard', title: 'menuLeaderboard', sub: 'menuLeaderboardSub', icon: Medal },
+    { to: '/how-to-play', title: 'menuHowTo', sub: 'menuHowToSub', icon: GraduationCap },
   ];
 
   return (
-    <div className="menu-page">
-      <header className="topbar menu-topbar">
-        <Brand />
-        <div className="topbar-actions">
-          <button
-            className="theme-toggle"
-            role="switch"
-            aria-checked={uiTheme === 'light'}
-            title={uiTheme === 'dark' ? t('lightTheme') : t('darkTheme')}
-            onClick={() => setUiTheme(uiTheme === 'dark' ? 'light' : 'dark')}
-          >
-            <span className="theme-toggle-track">
-              <svg className="icon-sun" viewBox="0 0 24 24" width="13" height="13" aria-hidden>
-                <circle cx="12" cy="12" r="5" fill="currentColor" />
-                <g stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M19.4 4.6l-2.1 2.1M6.7 17.3l-2.1 2.1" />
-                </g>
-              </svg>
-              <svg className="icon-moon" viewBox="0 0 24 24" width="13" height="13" aria-hidden>
-                <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" fill="currentColor" />
-              </svg>
-              <span className="theme-toggle-knob" />
-            </span>
-          </button>
-          <div className="segmented lang-switch">
-            <button className={lang === 'ru' ? 'active' : ''} onClick={() => setLang('ru')}>
-              RU
-            </button>
-            <button className={lang === 'en' ? 'active' : ''} onClick={() => setLang('en')}>
-              EN
-            </button>
-          </div>
+    <div className="menu">
+      <header className="menu-hero">
+        <div className="menu-hero-brand">
+          <BrandMark size={30} className="brand-mark-lg" />
+          <h1 className="menu-hero-title">
+            Chess&nbsp;2<span className="brand-dot">·</span>ASCENT
+          </h1>
         </div>
+        <PlayerRatingCard
+          userId={user.id}
+          displayName={user.displayName}
+          username={user.username}
+          avatarSrc={user.avatarBase64}
+          rating={rating}
+          to="/profile"
+          ariaLabel={t('openProfile')}
+        />
       </header>
 
-      <div className="menu-user card">
-        <Avatar src={user.avatarBase64} userId={user.id} name={user.displayName} size={44} />
-        <div className="menu-user-info">
-          <span className="menu-user-name">
-            {t('menuGreeting')} {user.displayName}
-          </span>
-          <span className="menu-user-sub">@{user.username}</span>
-        </div>
-        <button
-          className="btn btn-ghost"
+      <nav className="menu-sections">
+        {sections.map((s) => {
+          const Icon = s.icon;
+          return (
+            <Card key={s.to} to={s.to} interactive className="menu-tile">
+              <span className="menu-tile-icon" aria-hidden>
+                <Icon size={28} strokeWidth={1.75} />
+              </span>
+              {!!s.badge && <span className="unread-badge menu-tile-badge">{badgeText(s.badge)}</span>}
+              <span className="menu-tile-title">{t(s.title)}</span>
+              <span className="menu-tile-sub">{t(s.sub)}</span>
+            </Card>
+          );
+        })}
+      </nav>
+
+      <footer className="menu-foot">
+        <SegmentedControl
+          options={LANG_OPTIONS}
+          value={lang}
+          onChange={setLang}
+          ariaLabel={t('language')}
+        />
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={uiTheme === 'dark' ? Sun : Moon}
+          onClick={() => setUiTheme(uiTheme === 'dark' ? 'light' : 'dark')}
+        >
+          {uiTheme === 'dark' ? t('lightTheme') : t('darkTheme')}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={LogOut}
           onClick={() => {
             void logout().then(() => navigate('/login', { replace: true }));
           }}
         >
           {t('logoutBtn')}
-        </button>
-      </div>
-
-      <nav className="menu-grid">
-        {items.map((it) => (
-          <Link key={it.to} className="card menu-item" to={it.to}>
-            <span className="menu-item-icon" aria-hidden>
-              {it.icon}
-            </span>
-            {!!it.badge && <span className="unread-badge menu-badge">{badgeText(it.badge)}</span>}
-            <span className="menu-item-title">{it.title}</span>
-            <span className="menu-item-sub">{it.sub}</span>
-          </Link>
-        ))}
-      </nav>
+        </Button>
+      </footer>
     </div>
   );
 }
