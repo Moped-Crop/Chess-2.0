@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { Color } from '../../engine/types';
 import { Brand } from '../components/Brand';
@@ -36,7 +37,7 @@ export function BotSetupPage() {
         <Brand />
         <div className="topbar-actions">
           <Link className="btn btn-ghost" to="/menu">
-            ← {t('menuBack')}
+            <ArrowLeft size={16} strokeWidth={1.75} aria-hidden /> {t('menuBack')}
           </Link>
         </div>
       </header>

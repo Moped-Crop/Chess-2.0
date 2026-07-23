@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { Color, GameResult, Move } from '../../engine/types';
 import { Board } from '../components/Board';
@@ -222,7 +223,7 @@ export function OnlineGamePage() {
         <Brand />
         <div className="topbar-actions">
           <Link className="btn btn-ghost" to="/menu">
-            ← {t('menuBack')}
+            <ArrowLeft size={16} strokeWidth={1.75} aria-hidden /> {t('menuBack')}
           </Link>
         </div>
       </header>

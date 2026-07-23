@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, SkipBack, ChevronLeft, ChevronRight, SkipForward } from 'lucide-react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { Color, GameState, Piece } from '../../engine/types';
 import {
@@ -235,7 +236,7 @@ export function GameReplayPage() {
         <Brand />
         <div className="topbar-actions">
           <Link className="btn btn-ghost" to={backTo}>
-            ← {t(from ? 'playerProfileTitle' : 'historyTitle')}
+            <ArrowLeft size={16} strokeWidth={1.75} aria-hidden /> {t(from ? 'playerProfileTitle' : 'historyTitle')}
           </Link>
         </div>
       </header>
@@ -273,19 +274,19 @@ export function GameReplayPage() {
           </div>
           <div className="replay-controls">
             <button className="btn btn-subtle" title={t('replayStart')} disabled={idx === 0} onClick={() => jumpTo(0)}>
-              ⏮
+              <SkipBack size={18} strokeWidth={1.75} aria-hidden />
             </button>
             <button className="btn btn-subtle" title={t('replayPrev')} disabled={idx === 0} onClick={goBackward}>
-              ◀
+              <ChevronLeft size={18} strokeWidth={1.75} aria-hidden />
             </button>
             <span className="replay-counter">
               {idx} / {total}
             </span>
             <button className="btn btn-subtle" title={t('replayNext')} disabled={idx === total} onClick={goForward}>
-              ▶
+              <ChevronRight size={18} strokeWidth={1.75} aria-hidden />
             </button>
             <button className="btn btn-subtle" title={t('replayEnd')} disabled={idx === total} onClick={() => jumpTo(total)}>
-              ⏭
+              <SkipForward size={18} strokeWidth={1.75} aria-hidden />
             </button>
           </div>
         </div>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { Check, MessageSquare } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { apiPlayer, apiPlayerGames, type PlayerCard } from '../api/players';
@@ -151,9 +152,9 @@ export function PlayerProfilePage() {
   } else if (relation?.kind === 'friends') {
     relationBlock = (
       <>
-        <span className="relation-note">✓ {t('alreadyFriends')}</span>
+        <span className="relation-note"><Check size={16} strokeWidth={1.75} aria-hidden /> {t('alreadyFriends')}</span>
         <Link className="btn btn-primary" to={`/chats/${relation.friendshipId}`}>
-          💬 {t('chatWriteMessage')}
+          <MessageSquare size={16} strokeWidth={1.75} aria-hidden /> {t('chatWriteMessage')}
         </Link>
       </>
     );

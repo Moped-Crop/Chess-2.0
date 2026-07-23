@@ -1,3 +1,4 @@
+import { Trophy } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { isKingInCheck } from '../../engine';
 import { useT } from '../i18n';
@@ -24,7 +25,11 @@ export function StatusBanner() {
         {text}
         {inCheck ? ' · ' + t('check') : ''}
       </span>
-      {over && game.result !== 'draw' && <span className="status-trophy">🏆</span>}
+      {over && game.result !== 'draw' && (
+        <span className="status-trophy" aria-hidden>
+          <Trophy size={18} strokeWidth={1.75} />
+        </span>
+      )}
     </div>
   );
 }

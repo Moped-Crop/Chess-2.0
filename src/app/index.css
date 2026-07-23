@@ -1246,15 +1246,11 @@ h3,
   border-radius: 999px;
   padding: 4px 14px;
   margin-bottom: 12px;
-  box-shadow: 0 2px 12px rgba(232, 181, 58, 0.4);
 }
 
 .evo-modal {
   border-color: rgba(232, 181, 58, 0.35);
-  box-shadow:
-    0 0 0 1px rgba(232, 181, 58, 0.12),
-    0 8px 28px rgba(232, 181, 58, 0.1),
-    var(--shadow-3);
+  box-shadow: var(--shadow-3);
   overflow: hidden;
 }
 
@@ -1316,7 +1312,6 @@ h3,
 
 .choice-evo:hover {
   border-color: var(--gold);
-  box-shadow: 0 8px 26px rgba(232, 181, 58, 0.22);
 }
 
 .choice-piece {
@@ -1365,7 +1360,6 @@ h3,
 .gameover-icon.win {
   color: #2b1f04;
   background: linear-gradient(140deg, var(--gold-strong), var(--gold));
-  box-shadow: 0 6px 26px rgba(232, 181, 58, 0.45);
 }
 
 .gameover-icon.draw {
@@ -1480,12 +1474,10 @@ h3,
 
 .tut-caption.event {
   border-color: rgba(232, 181, 58, 0.55);
-  box-shadow: 0 2px 16px rgba(232, 181, 58, 0.25);
 }
 
 .tut-caption.danger {
   border-color: rgba(239, 71, 87, 0.55);
-  box-shadow: 0 2px 16px rgba(239, 71, 87, 0.25);
 }
 
 @keyframes caption-in {
@@ -1513,9 +1505,7 @@ h3,
 
 .tut-panel.evo {
   border-color: rgba(232, 181, 58, 0.5);
-  box-shadow:
-    0 0 0 1px rgba(232, 181, 58, 0.15),
-    0 8px 28px rgba(232, 181, 58, 0.18);
+  box-shadow: var(--shadow-2);
 }
 
 .tut-panel-title {
@@ -1554,7 +1544,7 @@ h3,
 .tut-panel-opt.picked {
   border-color: var(--gold);
   color: var(--text);
-  box-shadow: 0 0 0 2px var(--gold-soft), 0 4px 16px rgba(232, 181, 58, 0.3);
+  box-shadow: 0 0 0 2px var(--gold-soft);
   transform: scale(1.06);
 }
 
@@ -2200,7 +2190,6 @@ h3,
 
 .htp-goal.event {
   border-color: rgba(232, 181, 58, 0.55);
-  box-shadow: 0 2px 16px rgba(232, 181, 58, 0.25);
 }
 
 .htp-board {

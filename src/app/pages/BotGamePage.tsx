@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, BookOpen } from 'lucide-react';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import type { Color } from '../../engine/types';
 import type { BotDifficulty } from '../bot/protocol';
@@ -104,10 +105,10 @@ export function BotGamePage() {
         <Brand />
         <div className="topbar-actions">
           <button className="btn btn-ghost" onClick={() => setShowReference(true)}>
-            📖 {t('htpReferenceShort')}
+            <BookOpen size={16} strokeWidth={1.75} aria-hidden /> {t('htpReferenceShort')}
           </button>
           <Link className="btn btn-ghost" to="/menu">
-            ← {t('menuBack')}
+            <ArrowLeft size={16} strokeWidth={1.75} aria-hidden /> {t('menuBack')}
           </Link>
         </div>
       </header>

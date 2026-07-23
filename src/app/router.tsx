@@ -27,7 +27,6 @@ import { BotGamePage } from './pages/BotGamePage';
 import { ChatThreadPage } from './pages/ChatThreadPage';
 import { RankedPage } from './pages/RankedPage';
 import { LeaderboardPage } from './pages/LeaderboardPage';
-import { UiKitPage } from './pages/UiKitPage'; // ВРЕМЕННО (чекпоинт 2), удалить в конце фазы
 import { InviteLayer } from './components/InviteLayer';
 import { ChatLayer } from './components/ChatLayer';
 import { useAuthStore } from './store/authStore';
@@ -164,8 +163,6 @@ export function AppRouter() {
       <Route path="/play/bot" element={<BotGamePage />} />
       {/* Обучение доступно и без логина — ничего серверного ему не нужно. */}
       <Route path="/how-to-play" element={<HowToPlayPage />} />
-      {/* ВРЕМЕННО: демо UI-примитивов (чекпоинт 2). Удалить в конце фазы. */}
-      <Route path="/ui-kit" element={<UiKitPage />} />
       <Route
         path="/play/online/:gameId"
         element={
