@@ -133,7 +133,7 @@ export const HOW_TO_PLAY_LESSONS: Lesson[] = [
       {
         t: 'caption',
         text: {
-          ru: 'Дальше каждый механизм ты попробуешь сам — на настоящей доске',
+          ru: 'Дальше каждый механизм вы попробуете сами — на настоящей доске',
           en: 'From here on you will try every mechanic yourself — on a real board',
         },
         style: 'event',
@@ -162,19 +162,23 @@ export const HOW_TO_PLAY_LESSONS: Lesson[] = [
       },
       {
         t: 'caption',
-        text: { ru: 'Только вперёд — точки. Назад — нельзя (✕)', en: 'Forward only — dots. Never backward (✕)' },
+        text: { ru: 'Только вперёд. Назад ходить нельзя.', en: 'Forward only. It never moves backward.' },
         dur: 2000,
       },
       { t: 'arrow', from: sq(4, 3), to: sq(4, 6), dur: 700 },
       { t: 'move', from: sq(4, 3), to: sq(4, 6), dur: 900 },
       {
         t: 'practice',
-        goal: { ru: 'Теперь сам: сходи Петухом вперёд', en: 'Your turn: move the Rooster forward' },
-        successCaption: { ru: 'Отлично! Назад пути нет', en: 'Great! There is no way back' },
+        goal: { ru: 'Сходите Петухом вперёд', en: 'Move the Rooster forward' },
+        successCaption: { ru: 'Готово. Назад Петух не ходит.', en: 'Done. The Rooster never steps back.' },
         board: practiceRooster,
         turn: 'white',
+        // Именно вперёд по вертикали: тот же файл, ранг больше (ход белых).
         check: (move, before) =>
-          before.board[move.from]?.type === 'ROO' && move.capture === undefined,
+          before.board[move.from]?.type === 'ROO' &&
+          move.capture === undefined &&
+          move.to % 10 === move.from % 10 &&
+          Math.floor(move.to / 10) > Math.floor(move.from / 10),
       },
     ],
   },
@@ -183,8 +187,8 @@ export const HOW_TO_PLAY_LESSONS: Lesson[] = [
   {
     title: { ru: 'Петух: бок и взятие', en: 'Rooster: sidestep and capture' },
     text: {
-      ru: 'Вбок Петух шагает на 1 клетку, но только без взятия — так он обходит преграды ценой темпа. Бьёт он лишь по двум диагоналям-вперёд. Эта необратимость — и фишка, и слабость.',
-      en: 'The Rooster steps 1 square sideways, but only without capturing — a way around blockers at the cost of a tempo. It captures only along the two forward diagonals.',
+      ru: 'Вбок Петух шагает на одну клетку, но без взятия — так он обходит преграду ценой темпа. Бьёт только по двум диагоналям вперёд.',
+      en: 'The Rooster steps one square sideways, but only without capturing — a way around a blocker at the cost of a tempo. It captures only along the two forward diagonals.',
     },
     board: roosterCapture,
     script: [
@@ -209,7 +213,7 @@ export const HOW_TO_PLAY_LESSONS: Lesson[] = [
       { t: 'move', from: sq(4, 3), to: sq(5, 4), capture: sq(5, 4), dur: 1000 },
       {
         t: 'practice',
-        goal: { ru: 'Возьми Петухом пешку', en: 'Capture a pawn with the Rooster' },
+        goal: { ru: 'Возьмите пешку Петухом', en: 'Capture a pawn with the Rooster' },
         successCaption: { ru: 'Взятие!', en: 'Captured!' },
         board: practiceRoosterCapture,
         turn: 'white',
@@ -239,7 +243,7 @@ export const HOW_TO_PLAY_LESSONS: Lesson[] = [
       { t: 'move', from: sq(3, 3), to: sq(4, 5), capture: sq(4, 5), dur: 1000 },
       {
         t: 'practice',
-        goal: { ru: 'Возьми слона конём', en: 'Capture the bishop with your knight' },
+        goal: { ru: 'Возьмите слона конём', en: 'Capture the bishop with your knight' },
         successCaption: { ru: 'Слон снят с доски', en: 'The bishop is removed from the board' },
         board: practiceCapture,
         turn: 'white',
@@ -268,7 +272,7 @@ export const HOW_TO_PLAY_LESSONS: Lesson[] = [
       {
         t: 'caption',
         text: {
-          ru: 'Ход завершён в зоне — время эволюции! Сейчас попробуешь сам',
+          ru: 'Ход завершён в зоне — время эволюции! Сейчас попробуете сами',
           en: 'The move ended inside the zone — time to evolve! You will try it next',
         },
         style: 'event',
@@ -299,7 +303,7 @@ export const HOW_TO_PLAY_LESSONS: Lesson[] = [
       {
         t: 'practice',
         goal: {
-          ru: 'Заведи коня в зелёную зону и выбери форму',
+          ru: 'Заведите коня в зелёную зону и выберите форму',
           en: 'Move the knight into the green zone and pick a form',
         },
         successCaption: { ru: 'Эволюция! Форма выбрана', en: 'Evolved! Form chosen' },
@@ -340,7 +344,7 @@ export const HOW_TO_PLAY_LESSONS: Lesson[] = [
       },
       {
         t: 'practice',
-        goal: { ru: 'Сделай рокировку (в любую сторону)', en: 'Castle (either side)' },
+        goal: { ru: 'Сделайте рокировку (в любую сторону)', en: 'Castle (either side)' },
         successCaption: { ru: 'Король и ладья — одним ходом', en: 'King and rook — in a single move' },
         board: practiceCastle,
         turn: 'white',
@@ -371,7 +375,7 @@ export const HOW_TO_PLAY_LESSONS: Lesson[] = [
       { t: 'transform', square: sq(4, 7), into: 'Q', dur: 1300 },
       {
         t: 'practice',
-        goal: { ru: 'Проведи пешку и выбери фигуру', en: 'Promote the pawn and pick a piece' },
+        goal: { ru: 'Проведите пешку и выберите фигуру', en: 'Promote the pawn and pick a piece' },
         successCaption: {
           ru: 'Превращение! Такая фигура не эволюционирует',
           en: 'Promoted! This piece never evolves',
@@ -409,7 +413,7 @@ export const HOW_TO_PLAY_LESSONS: Lesson[] = [
       {
         t: 'practice',
         goal: {
-          ru: 'Чёрная пешка только что прыгнула на d5. Возьми её на проходе',
+          ru: 'Чёрная пешка только что прыгнула на d5. Возьмите её на проходе',
           en: 'The black pawn just jumped to d5. Capture it en passant',
         },
         successCaption: { ru: 'Взятие на проходе!', en: 'En passant!' },
@@ -442,7 +446,7 @@ export const HOW_TO_PLAY_LESSONS: Lesson[] = [
       {
         t: 'practice',
         goal: {
-          ru: 'Финальное упражнение: поставь мат в один ход',
+          ru: 'Финальное упражнение: поставьте мат в один ход',
           en: 'Final exercise: deliver checkmate in one move',
         },
         successCaption: { ru: 'Мат! Обучение пройдено', en: 'Checkmate! Tutorial complete' },

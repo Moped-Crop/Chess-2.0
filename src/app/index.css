@@ -1440,8 +1440,7 @@ h3,
 }
 
 .tut-progress span.current {
-  background: var(--accent-strong);
-  box-shadow: 0 0 8px var(--accent-ring);
+  background: var(--accent-hi);
 }
 
 .tut-board-wrap {
@@ -4813,4 +4812,31 @@ h3,
 .move-cell.current {
   background: var(--accent-soft);
   color: var(--text);
+}
+
+/* --- Обучение: финальный экран --- */
+.htp-final {
+  text-align: center;
+}
+.htp-final-icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto var(--sp-3);
+  border-radius: 50%;
+  background: var(--success-soft);
+  color: var(--success);
+}
+.htp-final-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-top: var(--sp-5);
+}
+.htp-done-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--success);
 }

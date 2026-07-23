@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { ArrowLeft, BookOpen, RotateCcw, Bot, Check } from 'lucide-react';
 import { Brand } from '../components/Brand';
 import { Board } from '../components/Board';
 import { EvolutionModal } from '../components/EvolutionModal';
@@ -8,13 +8,13 @@ import { EvolutionReference } from '../components/EvolutionReference';
 import { HOW_TO_PLAY_LESSONS, practiceOf, demoOf } from '../tutorial/howToPlayLessons';
 import { useGameStore } from '../store/gameStore';
 import { useT, useLang } from '../i18n';
+import { Card, Button } from '../components/ui';
 
 /**
  * «Как играть» — интерактивный тур (отдельная страница, доступна без логина):
- * демонстрация урока (TutorialBoard, как в локальном демо) → практика на
- * НАСТОЯЩЕЙ доске (mode='tutorial' в сторе: реальные легальные ходы движком,
- * та же анимация и модалка эволюции, что в живой партии) → справочник
- * эволюций. Прогресс — в localStorage.
+ * демонстрация урока (TutorialBoard) → практика на НАСТОЯЩЕЙ доске
+ * (mode='tutorial': реальные легальные ходы движком, та же модалка эволюции) →
+ * справочник эволюций. Прогресс — в localStorage.
  */
 
 const TOTAL = HOW_TO_PLAY_LESSONS.length;
@@ -45,8 +45,24 @@ function saveProgress(p: Progress): void {
   }
 }
 
-type View = 'lesson' | 'reference';
+type View = 'lesson' | 'reference' | 'done';
 type Phase = 'demo' | 'practice';
+
+/** Общая шапка страницы «Как играть». */
+function HtpHeader({ children }: { children?: React.ReactNode }) {
+  const t = useT();
+  return (
+    <header className="topbar">
+      <Brand />
+      <div className="topbar-actions">
+        {children}
+        <Button variant="ghost" size="sm" icon={ArrowLeft} to="/menu">
+          {t('menuBack')}
+        </Button>
+      </div>
+    </header>
+  );
+}
 
 export function HowToPlayPage() {
   const t = useT();
@@ -56,9 +72,11 @@ export function HowToPlayPage() {
   const exitTutorialPractice = useGameStore((s) => s.exitTutorialPractice);
 
   const [initial] = useState(loadProgress);
+  const initialAllDone = initial.done.every(Boolean);
   const hadProgress = initial.done.some(Boolean) || initial.lastIdx > 0;
-  const [resumeAsk, setResumeAsk] = useState(hadProgress);
-  const [view, setView] = useState<View>('lesson');
+  // Если всё пройдено — вопроса «продолжить?» нет, сразу финальный экран.
+  const [resumeAsk, setResumeAsk] = useState(hadProgress && !initialAllDone);
+  const [view, setView] = useState<View>(initialAllDone ? 'done' : 'lesson');
   const [i, setI] = useState(initial.lastIdx);
   const [done, setDone] = useState<boolean[]>(initial.done);
   const [phase, setPhase] = useState<Phase>('demo');
@@ -80,7 +98,8 @@ export function HowToPlayPage() {
     return () => exitTutorialPractice();
   }, [view, phase, i, resumeAsk, practice, startTutorialPractice, exitTutorialPractice]);
 
-  /* --- Проверка цели: подписка на ходы в сторе --- */
+  /* --- Проверка цели: подписка на ходы в сторе. «Далее» откроется, только
+     если ход выполнил именно цель шага (step.check), а не «сделан любой ход». */
   useEffect(() => {
     if (view !== 'lesson' || phase !== 'practice' || !practice || resumeAsk) return;
     setPassed(false);
@@ -103,9 +122,9 @@ export function HowToPlayPage() {
       setPassed(false);
       saveProgress({ done: nextDone, lastIdx: i + 1 });
     } else {
-      // Последний урок пройден — финальный экран = справочник.
+      // Последний урок пройден — финальный экран.
       saveProgress({ done: nextDone, lastIdx: i });
-      setView('reference');
+      setView('done');
     }
   }
 
@@ -116,7 +135,7 @@ export function HowToPlayPage() {
       setPassed(false);
       saveProgress({ done, lastIdx: i + 1 });
     } else {
-      setView('reference');
+      setView('done');
     }
   }
 
@@ -145,18 +164,23 @@ export function HowToPlayPage() {
     saveProgress(fresh);
   }
 
-  /* --- Экран «продолжить или заново» при возвращении --- */
+  function resetPractice() {
+    if (!practice) return;
+    setPassed(false);
+    startTutorialPractice({
+      board: practice.board,
+      turn: practice.turn,
+      enPassant: practice.enPassant ?? null,
+    });
+  }
+
+  /* --- Экран «продолжить или начать сначала» (только если пройдено не всё) --- */
   if (resumeAsk) {
     const doneCount = done.filter(Boolean).length;
     return (
       <div className="app htp-page">
-        <header className="topbar">
-          <Brand />
-          <div className="topbar-actions">
-            <Link className="btn btn-ghost" to="/menu">← {t('menuBack')}</Link>
-          </div>
-        </header>
-        <div className="htp-card card">
+        <HtpHeader />
+        <Card className="htp-card">
           <h2 className="htp-title">{t('menuHowTo')}</h2>
           <div className="tut-progress" aria-hidden>
             {HOW_TO_PLAY_LESSONS.map((_, k) => (
@@ -167,51 +191,71 @@ export function HowToPlayPage() {
             {t('htpResumeText')} ({doneCount} / {TOTAL})
           </p>
           <div className="tut-nav">
-            <button className="btn btn-primary" onClick={() => setResumeAsk(false)}>
+            <Button variant="primary" onClick={() => setResumeAsk(false)}>
               {t('htpContinue')}
-            </button>
-            <button className="btn btn-subtle" onClick={restart}>
+            </Button>
+            <Button variant="secondary" icon={RotateCcw} onClick={restart}>
               {t('htpStartOver')}
-            </button>
-            <button className="btn btn-ghost spacer" onClick={() => { setResumeAsk(false); setView('reference'); }}>
-              {t('htpReferenceShort')}
-            </button>
+            </Button>
           </div>
-        </div>
+        </Card>
       </div>
     );
   }
 
-  /* --- Справочник эволюций (и финальный экран) --- */
+  /* --- Финальный экран (обучение пройдено) --- */
+  if (view === 'done') {
+    return (
+      <div className="app htp-page">
+        <HtpHeader />
+        <Card className="htp-card htp-final">
+          <span className="htp-final-icon" aria-hidden>
+            <Check size={30} strokeWidth={2} />
+          </span>
+          <h2 className="htp-title">{t('htpAllDone')}</h2>
+          <p className="tut-text">{t('htpDoneText')}</p>
+          <div className="htp-final-actions">
+            <Button variant="primary" icon={Bot} to="/play/bot/setup">
+              {t('htpPlayBot')}
+            </Button>
+            <Button variant="secondary" icon={BookOpen} onClick={() => setView('reference')}>
+              {t('htpReference')}
+            </Button>
+            <Button variant="ghost" icon={RotateCcw} onClick={restart}>
+              {t('htpStartOver')}
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  /* --- Справочник эволюций --- */
   if (view === 'reference') {
     return (
       <div className="app htp-page">
-        <header className="topbar">
-          <Brand />
-          <div className="topbar-actions">
-            <Link className="btn btn-ghost" to="/menu">← {t('menuBack')}</Link>
-          </div>
-        </header>
-        <div className="htp-card card htp-card-wide">
+        <HtpHeader />
+        <Card className="htp-card htp-card-wide">
           <div className="tut-head">
             <h3>{t('htpReference')}</h3>
-            {allDone && <span className="tut-step">✓ {t('htpAllDone')}</span>}
+            {allDone && (
+              <span className="tut-step htp-done-badge">
+                <Check size={14} strokeWidth={2.25} aria-hidden /> {t('htpAllDone')}
+              </span>
+            )}
           </div>
           <EvolutionReference />
           <div className="tut-nav" style={{ marginTop: 16 }}>
-            <button className="btn btn-primary" onClick={() => setView('lesson')}>
-              {t('htpBackToTour')}
-            </button>
+            <Button variant="primary" onClick={() => setView(allDone ? 'done' : 'lesson')}>
+              {allDone ? t('back') : t('htpBackToTour')}
+            </Button>
             {allDone && (
-              <button className="btn btn-subtle" onClick={restart}>
+              <Button variant="secondary" icon={RotateCcw} onClick={restart}>
                 {t('htpStartOver')}
-              </button>
+              </Button>
             )}
-            <Link className="btn btn-ghost spacer" to="/menu">
-              {t('close')}
-            </Link>
           </div>
-        </div>
+        </Card>
       </div>
     );
   }
@@ -219,25 +263,25 @@ export function HowToPlayPage() {
   /* --- Урок: демо или практика --- */
   return (
     <div className="app htp-page">
-      <header className="topbar">
-        <Brand />
-        <div className="topbar-actions">
-          <button className="btn btn-ghost" onClick={() => setView('reference')}>
-            📖 {t('htpReferenceShort')}
-          </button>
-          <Link className="btn btn-ghost" to="/menu">← {t('menuBack')}</Link>
-        </div>
-      </header>
+      <HtpHeader>
+        <Button variant="ghost" size="sm" icon={BookOpen} onClick={() => setView('reference')}>
+          {t('htpReferenceShort')}
+        </Button>
+      </HtpHeader>
 
-      <div className={`htp-card card ${phase === 'practice' ? 'htp-card-wide' : ''}`}>
+      <Card className={`htp-card ${phase === 'practice' ? 'htp-card-wide' : ''}`}>
         <div className="tut-head">
           <h3>{lesson.title[lang]}</h3>
-          <span className="tut-step">{i + 1} / {TOTAL}</span>
+          <span className="tut-step">
+            {i + 1} / {TOTAL}
+          </span>
         </div>
 
         <div className="tut-progress" aria-hidden>
           {HOW_TO_PLAY_LESSONS.map((_, k) => (
-            <span key={k} className={done[k] ? 'done' : k === i ? 'current' : ''} />
+            // Текущий шаг подсвечивается ВСЕГДА (даже если он уже пройден) —
+            // иначе при листании назад индикатор не двигался.
+            <span key={k} className={k === i ? 'current' : done[k] ? 'done' : ''} />
           ))}
         </div>
 
@@ -246,26 +290,31 @@ export function HowToPlayPage() {
             <TutorialBoard lesson={demoOf(lesson)} runId={runId} />
             <p className="tut-text">{lesson.text[lang]}</p>
             <div className="tut-nav">
-              <button className="btn btn-subtle" onClick={goBack} disabled={i === 0}>
+              <Button variant="secondary" onClick={goBack} disabled={i === 0}>
                 {t('back')}
-              </button>
+              </Button>
               {practice ? (
-                <button className="btn btn-primary" onClick={() => setPhase('practice')}>
+                <Button variant="primary" onClick={() => setPhase('practice')}>
                   {t('htpTryIt')}
-                </button>
+                </Button>
               ) : (
-                <button className="btn btn-primary" onClick={markDoneAndNext}>
+                <Button variant="primary" onClick={markDoneAndNext}>
                   {i + 1 === TOTAL ? t('done') : t('next')}
-                </button>
+                </Button>
               )}
               {practice && (
-                <button className="btn btn-ghost" onClick={skip}>
+                <Button variant="ghost" onClick={skip}>
                   {t('htpSkip')}
-                </button>
+                </Button>
               )}
-              <button className="btn btn-ghost spacer" title={t('replay')} onClick={() => setRunId(runId + 1)}>
-                ⟳ {t('replay')}
-              </button>
+              <Button
+                variant="ghost"
+                icon={RotateCcw}
+                className="spacer"
+                onClick={() => setRunId(runId + 1)}
+              >
+                {t('replay')}
+              </Button>
             </div>
           </>
         ) : (
@@ -277,33 +326,22 @@ export function HowToPlayPage() {
               <Board />
             </div>
             <div className="tut-nav" style={{ marginTop: 14 }}>
-              <button className="btn btn-subtle" onClick={goBack}>
+              <Button variant="secondary" onClick={goBack}>
                 {t('htpBackToDemo')}
-              </button>
-              <button className="btn btn-primary" onClick={markDoneAndNext} disabled={!passed}>
+              </Button>
+              <Button variant="primary" onClick={markDoneAndNext} disabled={!passed}>
                 {i + 1 === TOTAL ? t('done') : t('next')}
-              </button>
-              <button
-                className="btn btn-ghost"
-                onClick={() => {
-                  if (!practice) return;
-                  setPassed(false);
-                  startTutorialPractice({
-                    board: practice.board,
-                    turn: practice.turn,
-                    enPassant: practice.enPassant ?? null,
-                  });
-                }}
-              >
-                ⟳ {t('htpReset')}
-              </button>
-              <button className="btn btn-ghost spacer" onClick={skip}>
+              </Button>
+              <Button variant="ghost" icon={RotateCcw} onClick={resetPractice}>
+                {t('htpReset')}
+              </Button>
+              <Button variant="ghost" className="spacer" onClick={skip}>
                 {t('htpSkip')}
-              </button>
+              </Button>
             </div>
           </>
         )}
-      </div>
+      </Card>
 
       <EvolutionModal />
     </div>

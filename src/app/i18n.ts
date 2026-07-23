@@ -154,6 +154,8 @@ const STRINGS = {
     htpStartOver: 'Начать заново',
     htpResumeText: 'Вы уже проходили обучение — продолжить с места остановки?',
     htpAllDone: 'Обучение пройдено',
+    htpDoneText: 'Вы освоили все правила Chess 2.',
+    htpPlayBot: 'Играть с ботом',
     // Справочник теперь описывает и Петуха, а не только эволюции.
     htpReference: 'Справочник фигур',
     htpReferenceShort: 'Справочник',
@@ -472,6 +474,8 @@ const STRINGS = {
     htpStartOver: 'Start over',
     htpResumeText: 'You have been here before — continue where you left off?',
     htpAllDone: 'Tutorial complete',
+    htpDoneText: 'You know all the rules of Chess 2 now.',
+    htpPlayBot: 'Play vs bot',
     htpReference: 'Piece reference',
     htpReferenceShort: 'Reference',
     refNewPiece: 'new piece',
