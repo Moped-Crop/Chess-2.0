@@ -148,7 +148,7 @@ describe('PlayerProfilePage', () => {
     mockNetwork(BOB, () => ({ ...EMPTY_FRIENDS, outgoing: [bobEntry(5)] }));
     renderAt('/players/bob');
 
-    expect(await screen.findByText('Заявка отправлена ✓')).toBeTruthy();
+    expect(await screen.findByText('Заявка отправлена')).toBeTruthy();
     expect(screen.queryByText('Добавить в друзья')).toBeNull();
   });
 
