@@ -14,11 +14,17 @@ const CELLS: { key: StrKey; pick: (s: UserStats) => number }[] = [
   { key: 'statGames', pick: (s) => s.gamesPlayed },
 ];
 
-export function StatsGrid({ stats }: { stats: UserStats | null }) {
+export function StatsGrid({
+  stats,
+  titleKey = 'statsTitle',
+}: {
+  stats: UserStats | null;
+  titleKey?: StrKey;
+}) {
   const t = useT();
   return (
     <>
-      <h3 className="section-title">{t('statsTitle')}</h3>
+      <h3 className="section-title">{t(titleKey)}</h3>
       <div className="stats-grid">
         {stats &&
           CELLS.map((c) => (

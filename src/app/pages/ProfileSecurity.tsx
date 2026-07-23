@@ -1,14 +1,13 @@
 /**
- * Блок «Безопасность» на странице профиля: смена пароля/логина/почты, 2FA
- * (включение через QR + резервные коды, отключение) и удаление аккаунта.
- *
- * Оформление — в стиле существующих карточек (.card/.field/.btn); чистовой
- * редизайн менюшек будет отдельной фазой. Баннер про неподтверждённую почту
- * здесь не нужен: раз пользователь залогинен, почта уже подтверждена.
+ * Блок «Безопасность» профиля: смена пароля/логина/почты, 2FA и удаление
+ * аккаунта. Настройки собраны в аккордеон — раскрыта максимум одна строка,
+ * остальные показывают только название и текущее значение. Раньше все формы
+ * висели простынёй одновременно — на это жаловались.
  */
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { KeyRound, AtSign, Mail, ShieldCheck, ChevronDown, type LucideIcon } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { apiMe } from '../api/auth';
 import {
@@ -22,6 +21,7 @@ import { useT, useLang, type StrKey } from '../i18n';
 import { errorKey } from './authShared';
 import { PasswordInput } from '../components/PasswordInput';
 import { TwoFactorEnable } from '../components/TwoFactorEnable';
+import { Button, Card, Modal } from '../components/ui';
 
 /** Мелкий помощник: строка статуса (успех/ошибка) под формой. */
 function Status({ ok, err }: { ok: StrKey | null; err: StrKey | null }) {
@@ -29,6 +29,48 @@ function Status({ ok, err }: { ok: StrKey | null; err: StrKey | null }) {
   if (ok) return <p className="form-ok">{t(ok)}</p>;
   if (err) return <p className="form-error">{t(err)}</p>;
   return null;
+}
+
+/** Строка аккордеона: заголовок + текущее значение, раскрывается по клику. */
+function SettingRow({
+  id,
+  open,
+  onToggle,
+  icon: Icon,
+  title,
+  value,
+  valueTone,
+  children,
+}: {
+  id: string;
+  open: boolean;
+  onToggle: (id: string) => void;
+  icon: LucideIcon;
+  title: string;
+  value?: string;
+  valueTone?: 'on' | 'off';
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`setting ${open ? 'setting-open' : ''}`}>
+      <button
+        type="button"
+        className="setting-head"
+        aria-expanded={open}
+        onClick={() => onToggle(id)}
+      >
+        <Icon className="setting-icon" size={18} strokeWidth={1.75} aria-hidden />
+        <span className="setting-title">{title}</span>
+        {value && (
+          <span className={`setting-value ${valueTone ? `setting-value-${valueTone}` : ''}`}>
+            {value}
+          </span>
+        )}
+        <ChevronDown className="setting-chev" size={18} strokeWidth={1.75} aria-hidden />
+      </button>
+      {open && <div className="setting-body">{children}</div>}
+    </div>
+  );
 }
 
 /**
@@ -84,8 +126,7 @@ function ChangePassword() {
   }
 
   return (
-    <form className="sec-block" onSubmit={submit}>
-      <h4 className="sec-heading">{t('secChangePassword')}</h4>
+    <form onSubmit={submit}>
       <label className="field">
         <span className="field-label">{t('secCurrentPassword')}</span>
         <PasswordInput value={cur} autoComplete="current-password" onChange={(e) => setCur(e.target.value)} required />
@@ -96,9 +137,9 @@ function ChangePassword() {
       </label>
       <TwoFaField code={code} setCode={setCode} />
       <Status ok={ok} err={err} />
-      <button className="btn btn-primary" type="submit" disabled={busy}>
+      <Button variant="primary" type="submit" disabled={busy}>
         {t('secChangePasswordBtn')}
-      </button>
+      </Button>
     </form>
   );
 }
@@ -135,8 +176,7 @@ function ChangeUsername() {
   }
 
   return (
-    <form className="sec-block" onSubmit={submit}>
-      <h4 className="sec-heading">{t('secChangeUsername')}</h4>
+    <form onSubmit={submit}>
       <label className="field">
         <span className="field-label">{t('secCurrentPassword')}</span>
         <PasswordInput value={cur} autoComplete="current-password" onChange={(e) => setCur(e.target.value)} required />
@@ -147,9 +187,9 @@ function ChangeUsername() {
       </label>
       <TwoFaField code={code} setCode={setCode} />
       <Status ok={ok} err={err} />
-      <button className="btn btn-primary" type="submit" disabled={busy}>
+      <Button variant="primary" type="submit" disabled={busy}>
         {t('secChangeUsernameBtn')}
-      </button>
+      </Button>
     </form>
   );
 }
@@ -184,8 +224,7 @@ function ChangeEmail() {
   }
 
   return (
-    <form className="sec-block" onSubmit={submit}>
-      <h4 className="sec-heading">{t('secChangeEmail')}</h4>
+    <form onSubmit={submit}>
       {pending && (
         <p className="form-ok">
           {t('secEmailPending')} <strong>{pending}</strong>
@@ -201,9 +240,9 @@ function ChangeEmail() {
       </label>
       <TwoFaField code={code} setCode={setCode} />
       <Status ok={null} err={err} />
-      <button className="btn btn-primary" type="submit" disabled={busy}>
+      <Button variant="primary" type="submit" disabled={busy}>
         {t('secChangeEmailBtn')}
-      </button>
+      </Button>
     </form>
   );
 }
@@ -245,32 +284,24 @@ function TwoFactor() {
     }
   }
 
+  // Включение — переиспользуемый поток; по завершении обновляем стор.
+  if (!enabled) return <TwoFactorEnable onDone={() => void refreshUser()} />;
+
   return (
-    <div className="sec-block">
-      <h4 className="sec-heading">
-        {t('sec2faTitle')} — <span className={enabled ? 'badge-on' : 'badge-off'}>{enabled ? t('sec2faOn') : t('sec2faOff')}</span>
-      </h4>
-
-      {/* Включение — переиспользуемый поток; по завершении обновляем стор. */}
-      {!enabled && <TwoFactorEnable onDone={() => void refreshUser()} />}
-
-      {enabled && (
-        <form onSubmit={disable}>
-          <label className="field">
-            <span className="field-label">{t('secCurrentPassword')}</span>
-            <PasswordInput value={disCur} autoComplete="current-password" onChange={(e) => setDisCur(e.target.value)} required />
-          </label>
-          <label className="field">
-            <span className="field-label">{t('sec2faDisableCode')}</span>
-            <input className="input" value={disCode} inputMode="text" onChange={(e) => setDisCode(e.target.value)} required />
-          </label>
-          <Status ok={null} err={err} />
-          <button className="btn btn-danger" type="submit" disabled={busy}>
-            {t('sec2faDisable')}
-          </button>
-        </form>
-      )}
-    </div>
+    <form onSubmit={disable}>
+      <label className="field">
+        <span className="field-label">{t('secCurrentPassword')}</span>
+        <PasswordInput value={disCur} autoComplete="current-password" onChange={(e) => setDisCur(e.target.value)} required />
+      </label>
+      <label className="field">
+        <span className="field-label">{t('sec2faDisableCode')}</span>
+        <input className="input" value={disCode} inputMode="text" onChange={(e) => setDisCode(e.target.value)} required />
+      </label>
+      <Status ok={null} err={err} />
+      <Button variant="danger" type="submit" disabled={busy}>
+        {t('sec2faDisable')}
+      </Button>
+    </form>
   );
 }
 
@@ -336,58 +367,58 @@ function DeleteAccount() {
   }
 
   return (
-    <div className="sec-block danger-zone">
-      <h4 className="sec-heading">{t('delTitle')}</h4>
-      <p className="muted">{t('delIntro')}</p>
-      <button className="btn btn-danger" onClick={() => setOpen(true)}>
-        {t('delTitle')}
-      </button>
+    <div className="danger-zone">
+      <div className="danger-zone-row">
+        <div>
+          <p className="danger-zone-title">{t('delTitle')}</p>
+          <p className="muted danger-zone-hint">{t('delIntro')}</p>
+        </div>
+        <Button variant="danger" onClick={() => setOpen(true)}>
+          {t('delTitle')}
+        </Button>
+      </div>
 
       {open && (
-        <div className="overlay" onClick={reset}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3>{t('delTitle')}</h3>
+        <Modal title={t('delTitle')} onClose={reset} closeLabel={t('close')}>
+          {step === 'password' && (
+            <form onSubmit={firstCall}>
+              <p className="muted">{t('delPasswordPrompt')}</p>
+              <label className="field">
+                <span className="field-label">{t('secCurrentPassword')}</span>
+                <PasswordInput value={password} autoFocus autoComplete="current-password" onChange={(e) => setPassword(e.target.value)} required />
+              </label>
+              {err && <p className="form-error">{t(err)}</p>}
+              <div className="ui-modal-footer">
+                <Button variant="ghost" type="button" onClick={reset}>
+                  {t('cancel')}
+                </Button>
+                <Button variant="primary" type="submit" disabled={busy}>
+                  {t('delContinue')}
+                </Button>
+              </div>
+            </form>
+          )}
 
-            {step === 'password' && (
-              <form onSubmit={firstCall}>
-                <p className="muted">{t('delPasswordPrompt')}</p>
-                <label className="field">
-                  <span className="field-label">{t('secCurrentPassword')}</span>
-                  <PasswordInput value={password} autoFocus autoComplete="current-password" onChange={(e) => setPassword(e.target.value)} required />
-                </label>
-                {err && <p className="form-error">{t(err)}</p>}
-                <div className="btn-row">
-                  <button className="btn btn-subtle" type="button" onClick={reset}>
-                    {t('cancel')}
-                  </button>
-                  <button className="btn btn-primary" type="submit" disabled={busy}>
-                    {t('delContinue')}
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {(step === 'totp' || step === 'email') && (
-              <form onSubmit={secondCall}>
-                <p className="muted">{step === 'totp' ? t('delTotpPrompt') : t('delEmailSent')}</p>
-                <label className="field">
-                  <span className="field-label">{step === 'totp' ? t('login2faCode') : t('delEmailCode')}</span>
-                  <input className="input" value={code} autoFocus inputMode={step === 'email' ? 'numeric' : 'text'} onChange={(e) => setCode(e.target.value)} required />
-                </label>
-                <p className="form-error">{t('delFinalWarning')}</p>
-                {err && <p className="form-error">{t(err)}</p>}
-                <div className="btn-row">
-                  <button className="btn btn-subtle" type="button" onClick={reset}>
-                    {t('cancel')}
-                  </button>
-                  <button className="btn btn-danger" type="submit" disabled={busy}>
-                    {t('delConfirmBtn')}
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
+          {(step === 'totp' || step === 'email') && (
+            <form onSubmit={secondCall}>
+              <p className="muted">{step === 'totp' ? t('delTotpPrompt') : t('delEmailSent')}</p>
+              <label className="field">
+                <span className="field-label">{step === 'totp' ? t('login2faCode') : t('delEmailCode')}</span>
+                <input className="input" value={code} autoFocus inputMode={step === 'email' ? 'numeric' : 'text'} onChange={(e) => setCode(e.target.value)} required />
+              </label>
+              <p className="form-error">{t('delFinalWarning')}</p>
+              {err && <p className="form-error">{t(err)}</p>}
+              <div className="ui-modal-footer">
+                <Button variant="ghost" type="button" onClick={reset}>
+                  {t('cancel')}
+                </Button>
+                <Button variant="danger" solid type="submit" disabled={busy}>
+                  {t('delConfirmBtn')}
+                </Button>
+              </div>
+            </form>
+          )}
+        </Modal>
       )}
     </div>
   );
@@ -397,14 +428,37 @@ function DeleteAccount() {
 
 export function ProfileSecurity() {
   const t = useT();
+  const username = useAuthStore((s) => s.user?.username) ?? '';
+  const enabled = useAuthStore((s) => s.user?.totpEnabled) ?? false;
+  const [open, setOpen] = useState<string | null>(null);
+  const toggle = (id: string) => setOpen((o) => (o === id ? null : id));
+
   return (
-    <div className="card profile-card">
+    <Card className="profile-card">
       <h3 className="section-title">{t('secTitle')}</h3>
-      <ChangePassword />
-      <ChangeUsername />
-      <ChangeEmail />
-      <TwoFactor />
+      <div className="settings">
+        <SettingRow id="pwd" open={open === 'pwd'} onToggle={toggle} icon={KeyRound} title={t('secChangePassword')} value="••••••••">
+          <ChangePassword />
+        </SettingRow>
+        <SettingRow id="usr" open={open === 'usr'} onToggle={toggle} icon={AtSign} title={t('secChangeUsername')} value={`@${username}`}>
+          <ChangeUsername />
+        </SettingRow>
+        <SettingRow id="eml" open={open === 'eml'} onToggle={toggle} icon={Mail} title={t('secChangeEmail')}>
+          <ChangeEmail />
+        </SettingRow>
+        <SettingRow
+          id="2fa"
+          open={open === '2fa'}
+          onToggle={toggle}
+          icon={ShieldCheck}
+          title={t('sec2faTitle')}
+          value={enabled ? t('sec2faOn') : t('sec2faOff')}
+          valueTone={enabled ? 'on' : 'off'}
+        >
+          <TwoFactor />
+        </SettingRow>
+      </div>
       <DeleteAccount />
-    </div>
+    </Card>
   );
 }

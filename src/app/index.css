@@ -4000,3 +4000,183 @@ h3,
     grid-template-columns: 1fr;
   }
 }
+
+/* ============================================================
+   Экран: Профиль (редизайн, фаза 6)
+   ============================================================ */
+.profile-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  margin-bottom: var(--sp-4);
+}
+
+.profile-head {
+  display: flex;
+  gap: var(--sp-5);
+  align-items: flex-start;
+}
+
+.profile-head-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-head-body .ui-field {
+  margin-bottom: var(--sp-2);
+}
+
+.profile-head-body .profile-username {
+  margin: 0 0 var(--sp-3);
+}
+
+.profile-edit-actions {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.profile-rating {
+  padding-top: var(--sp-5);
+  border-top: 1px solid var(--border);
+}
+
+/* Две карточки статистики рядом. */
+.profile-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+
+.profile-stats-grid .section-title {
+  margin-top: 0;
+}
+
+.profile-history-row {
+  margin-bottom: var(--sp-4);
+}
+
+@media (max-width: 640px) {
+  .profile-stats-grid {
+    grid-template-columns: 1fr;
+  }
+  .profile-head {
+    gap: var(--sp-4);
+  }
+}
+
+/* --- Настройки: аккордеон --- */
+.settings {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.setting + .setting {
+  border-top: 1px solid var(--border);
+}
+
+.setting-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  padding: var(--sp-3) var(--sp-4);
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--fs-md);
+  text-align: left;
+  cursor: pointer;
+  min-height: 52px;
+  transition: background var(--t-fast) var(--ease);
+}
+
+.setting-head:hover {
+  background: var(--surface-2);
+}
+
+.setting-icon {
+  color: var(--text-dim);
+  flex: 0 0 auto;
+}
+
+.setting-title {
+  font-weight: 600;
+}
+
+.setting-value {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.setting-value-on {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.setting-value-off {
+  color: var(--text-faint);
+}
+
+.setting-chev {
+  flex: 0 0 auto;
+  color: var(--text-faint);
+  transition: transform var(--t-med) var(--ease);
+}
+
+/* Когда значение занимает место, шеврон прижимается к нему, не к auto-краю. */
+.setting-value + .setting-chev {
+  margin-left: var(--sp-2);
+}
+.setting-head:not(:has(.setting-value)) .setting-chev {
+  margin-left: auto;
+}
+
+.setting-open .setting-chev {
+  transform: rotate(180deg);
+}
+
+.setting-body {
+  padding: var(--sp-2) var(--sp-4) var(--sp-5);
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+  animation: setting-in var(--t-med) var(--ease);
+}
+
+@keyframes setting-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* --- Опасная зона: удаление аккаунта отдельно внизу --- */
+.danger-zone {
+  margin-top: var(--sp-5);
+  padding-top: var(--sp-5);
+  border-top: 1px solid var(--border);
+}
+
+.danger-zone-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+
+.danger-zone-title {
+  margin: 0;
+  font-weight: 700;
+}
+
+.danger-zone-hint {
+  margin: 2px 0 0;
+}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { History } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { apiUpdateProfile, apiGetStats, type StatsResponse } from '../api/profile';
 import { useT, type StrKey } from '../i18n';
@@ -7,6 +7,7 @@ import { PageShell } from './PageShell';
 import { Avatar } from '../components/Avatar';
 import { StatsGrid } from '../components/StatsGrid';
 import { RatingSummary, RankedStatsGrid } from '../components/RatingSummary';
+import { Button, Card, Field } from '../components/ui';
 import { errorKey } from './authShared';
 import { ProfileSecurity } from './ProfileSecurity';
 
@@ -43,7 +44,7 @@ async function fileToAvatar(file: File): Promise<string> {
   }
 }
 
-/** Профиль: имя, аватар, статистика. */
+/** Профиль: имя, аватар, рейтинг, статистика, настройки. */
 export function ProfilePage() {
   const t = useT();
   const user = useAuthStore((s) => s.user);
@@ -97,37 +98,41 @@ export function ProfilePage() {
       const avatarBase64 = await fileToAvatar(file);
       await save({ avatarBase64 });
     } catch {
-      setError('errValidation');
+      // Понятно, что случилось и что делать.
+      setError('errAvatarFailed');
     }
   }
 
   return (
     <PageShell title={t('menuProfile')}>
-      <div className="card profile-card">
-        <div className="profile-main">
-          <Avatar src={user.avatarBase64} userId={user.id} name={user.displayName} size={88} />
-          <div className="profile-fields">
-            <label className="field">
-              <span className="field-label">{t('authDisplayName')}</span>
-              <input
-                className="input"
-                value={displayName}
-                maxLength={64}
-                onChange={(e) => setDisplayName(e.target.value)}
-              />
-            </label>
-            <div className="btn-row">
-              <button
-                className="btn btn-primary"
+      <Card className="profile-header">
+        <div className="profile-head">
+          <Avatar src={user.avatarBase64} userId={user.id} name={user.displayName} size={96} />
+          <div className="profile-head-body">
+            <Field
+              label={t('authDisplayName')}
+              value={displayName}
+              maxLength={64}
+              onChange={(e) => setDisplayName(e.target.value)}
+            />
+            <span className="profile-username">@{user.username}</span>
+            <div className="profile-edit-actions">
+              <Button
+                variant="primary"
                 disabled={busy || displayName.trim().length === 0}
                 onClick={() => void save({ displayName: displayName.trim() })}
               >
                 {saved ? t('savedOk') : t('saveBtn')}
-              </button>
-              <button className="btn btn-subtle" disabled={busy} onClick={() => fileRef.current?.click()}>
+              </Button>
+              <Button variant="secondary" disabled={busy} onClick={() => fileRef.current?.click()}>
                 {t('avatarChange')}
-              </button>
+              </Button>
             </div>
+            {error && (
+              <p className="ui-field-error" role="alert">
+                {t(error)}
+              </p>
+            )}
             <input
               ref={fileRef}
               type="file"
@@ -137,32 +142,37 @@ export function ProfilePage() {
             />
           </div>
         </div>
-        {error && <p className="form-error">{t(error)}</p>}
-        <p className="profile-username">@{user.username}</p>
-      </div>
-
-      {stats && (
-        <div className="card profile-card">
-          <RatingSummary
-            rating={stats.rating}
-            peakRating={stats.peakRating}
-            rankedGamesPlayed={stats.ranked.gamesPlayed}
-          />
-        </div>
-      )}
-
-      <div className="card profile-card">
-        {/* Обычная статистика — включает и рейтинговые, и обычные онлайн-партии. */}
-        <StatsGrid stats={stats?.stats ?? null} />
-        {/* Отдельно — только рейтинговые партии. */}
         {stats && (
-          <div style={{ marginTop: 16 }}>
-            <RankedStatsGrid ranked={stats.ranked} />
+          <div className="profile-rating">
+            <RatingSummary
+              rating={stats.rating}
+              peakRating={stats.peakRating}
+              rankedGamesPlayed={stats.ranked.gamesPlayed}
+            />
           </div>
         )}
-        <Link className="btn btn-subtle btn-block" to="/history" style={{ marginTop: 12 }}>
-          📜 {t('historyTitle')}
-        </Link>
+      </Card>
+
+      <div className="profile-stats-grid">
+        <Card>
+          <StatsGrid stats={stats?.stats ?? null} titleKey="statsAllTitle" />
+        </Card>
+        <Card>
+          {stats ? (
+            <RankedStatsGrid ranked={stats.ranked} />
+          ) : (
+            <>
+              <h3 className="section-title">{t('rankedStatsTitle')}</h3>
+              <p className="page-loader">{t('loading')}</p>
+            </>
+          )}
+        </Card>
+      </div>
+
+      <div className="profile-history-row">
+        <Button variant="secondary" icon={History} to="/history">
+          {t('historyTitle')}
+        </Button>
       </div>
 
       <ProfileSecurity />
