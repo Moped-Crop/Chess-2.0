@@ -24,7 +24,6 @@ import { GameReplayPage } from './pages/GameReplayPage';
 import { HowToPlayPage } from './pages/HowToPlayPage';
 import { BotSetupPage } from './pages/BotSetupPage';
 import { BotGamePage } from './pages/BotGamePage';
-import { ChatsListPage } from './pages/ChatsListPage';
 import { ChatThreadPage } from './pages/ChatThreadPage';
 import { RankedPage } from './pages/RankedPage';
 import { LeaderboardPage } from './pages/LeaderboardPage';
@@ -124,15 +123,7 @@ export function AppRouter() {
           </RequireAuth>
         }
       />
-      {/* Переписка с друзьями: список бесед и отдельный тред. */}
-      <Route
-        path="/chats"
-        element={
-          <RequireAuth>
-            <ChatsListPage />
-          </RequireAuth>
-        }
-      />
+      {/* Переписка с другом: тред открывается из раздела «Друзья». */}
       <Route
         path="/chats/:friendshipId"
         element={

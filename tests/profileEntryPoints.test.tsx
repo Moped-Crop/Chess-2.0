@@ -75,9 +75,9 @@ describe('entry points to a player profile', () => {
 
     expect(await screen.findByText('Боб')).toBeTruthy();
     expect(linkAround('Боб')).toBe('/players/bob');
-    // Кнопки — соседи ссылки, а не её содержимое: клик по ним профиль не откроет.
-    expect(screen.getByText('Удалить').closest('a')).toBeNull();
-    expect(screen.getByText(/В игру/).closest('a')).toBeNull();
+    // Кнопки-иконки — соседи ссылки, а не её содержимое: клик по ним профиль не откроет.
+    expect(screen.getByRole('button', { name: 'Удалить' }).closest('a')).toBeNull();
+    expect(screen.getByRole('button', { name: 'В игру' }).closest('a')).toBeNull();
   });
 
   it('history: the row opens the replay, the opponent name opens the profile', async () => {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { Smile, Swords, Send, SmilePlus, Pencil, MessageSquare } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useChatStore } from '../store/chatStore';
 import type { ChatMessage } from '../api/chat';
@@ -11,9 +12,12 @@ import { Avatar } from '../components/Avatar';
 import { EmojiPicker } from '../components/EmojiPicker';
 import { RatingBadge } from '../components/RatingBadge';
 import { TimeControlPicker } from '../components/TimeControlPicker';
+import { Card, Button, EmptyState, Skeleton } from '../components/ui';
 
 /** Куда уйдёт выбранный эмодзи: в текст сообщения или в реакцию. */
 type EmojiTarget = { kind: 'composer' } | { kind: 'reaction'; messageId: number };
+
+const COMPOSER_MAX_H = 120; // ~5 строк
 
 function timeLabel(iso: string, lang: string): string {
   return new Date(iso).toLocaleTimeString(lang === 'en' ? 'en-GB' : 'ru-RU', {
@@ -22,10 +26,15 @@ function timeLabel(iso: string, lang: string): string {
   });
 }
 
+function autoresize(el: HTMLTextAreaElement | null) {
+  if (!el) return;
+  el.style.height = 'auto';
+  el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_H)}px`;
+}
+
 /**
  * Переписка с одним другом. Пока страница открыта, тред считается активным:
- * новые сообщения в него сразу помечаются прочитанными и не показывают тост
- * (см. `chatStore.onMessage`).
+ * новые сообщения в него сразу помечаются прочитанными и не показывают тост.
  */
 export function ChatThreadPage() {
   const { friendshipId: raw = '' } = useParams();
@@ -60,8 +69,6 @@ export function ChatThreadPage() {
 
   const messages = thread?.messages ?? [];
 
-  // Открыт тред — прочитано всё, что в нём было. При уходе активный тред
-  // сбрасывается, иначе фоновые сообщения перестали бы считаться новыми.
   useEffect(() => {
     if (!Number.isInteger(friendshipId) || friendshipId <= 0) return;
     setActiveThread(friendshipId);
@@ -70,13 +77,10 @@ export function ChatThreadPage() {
     return () => setActiveThread(null);
   }, [friendshipId, setActiveThread, openThread, markRead]);
 
-  // Шапка треда берёт собеседника из списка бесед — если зашли по прямой
-  // ссылке и список ещё пуст, подгружаем его.
   useEffect(() => {
     if (!conversation) void loadConversations();
   }, [conversation, loadConversations]);
 
-  // Новые сообщения — прокрутка вниз; подгрузка старых её не трогает.
   useLayoutEffect(() => {
     const el = listRef.current;
     if (!el) return;
@@ -89,7 +93,6 @@ export function ChatThreadPage() {
     lastCountRef.current = messages.length;
   }, [messages.length]);
 
-  /** Бесконечная лента вверх: у самого верха просим следующую страницу. */
   const onScroll = useCallback(() => {
     const el = listRef.current;
     if (!el || el.scrollTop > 40) return;
@@ -101,9 +104,9 @@ export function ChatThreadPage() {
     if (!text) return;
     sendMessage(friendshipId, text);
     setDraft('');
+    autoresize(inputRef.current);
   }
 
-  /** Эмодзи из пикера: в реакцию или в текст на позицию курсора. */
   function pickEmoji(emoji: string) {
     if (!emojiTarget) return;
     if (emojiTarget.kind === 'reaction') {
@@ -117,10 +120,10 @@ export function ChatThreadPage() {
     const next = draft.slice(0, start) + emoji + draft.slice(end);
     setDraft(next);
     setEmojiTarget(null);
-    // Курсор должен остаться сразу за вставленным символом.
     window.setTimeout(() => {
       el?.focus();
       el?.setSelectionRange(start + emoji.length, start + emoji.length);
+      autoresize(el);
     }, 0);
   }
 
@@ -135,31 +138,34 @@ export function ChatThreadPage() {
     const canAnswer = msg.inviteStatus === 'pending' && msg.senderId !== myId;
     return (
       <div className="chat-invite-card">
-        <span className="chat-invite-title">⚔ {t('chatInviteTitle')}</span>
-        {msg.inviteRanked && (
-          <span className="game-kind-badge ranked">{t('ratedBadge')}</span>
-        )}
-        {preset && (
-          <span className="chat-invite-tc">{lang === 'en' ? preset.labelEn : preset.label}</span>
-        )}
+        <span className="chat-invite-icon" aria-hidden>
+          <Swords size={20} strokeWidth={1.75} />
+        </span>
+        <div className="chat-invite-body">
+          <div className="chat-invite-head">
+            <span className="chat-invite-title">{t('chatInviteTitle')}</span>
+            {msg.inviteRanked && <span className="ui-badge ui-badge-accent">{t('ratedBadge')}</span>}
+          </div>
+          {preset && (
+            <span className="chat-invite-tc">{lang === 'en' ? preset.labelEn : preset.label}</span>
+          )}
+        </div>
         {canAnswer ? (
-          <div className="btn-row">
-            <button
-              className="btn btn-primary"
-              onClick={() =>
-                connectSocket().emit('invite-accepted', { gameId: msg.inviteGameId })
-              }
+          <div className="chat-invite-actions">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => connectSocket().emit('invite-accepted', { gameId: msg.inviteGameId })}
             >
               {t('acceptBtn')}
-            </button>
-            <button
-              className="btn btn-subtle"
-              onClick={() =>
-                connectSocket().emit('invite-declined', { gameId: msg.inviteGameId })
-              }
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => connectSocket().emit('invite-declined', { gameId: msg.inviteGameId })}
             >
               {t('declineBtn')}
-            </button>
+            </Button>
           </div>
         ) : (
           <span className="chat-invite-status">{t(inviteStatusKey(msg))}</span>
@@ -168,118 +174,159 @@ export function ChatThreadPage() {
     );
   }
 
-  function renderMessage(msg: ChatMessage) {
+  const friend = conversation?.friend;
+
+  function renderMessage(msg: ChatMessage, i: number) {
+    if (msg.kind === 'invite') {
+      return (
+        <div key={msg.id} className="chat-invite-row">
+          {renderInvite(msg)}
+        </div>
+      );
+    }
+
     const mine = msg.senderId === myId;
     const editing = editingId === msg.id;
+    const prev = messages[i - 1];
+    // Группируем подряд идущие сообщения одного отправителя (не через инвайт).
+    const grouped = !!prev && prev.kind === 'text' && prev.senderId === msg.senderId;
+
     return (
-      <div key={msg.id} className={`chat-msg ${mine ? 'mine' : 'theirs'}`}>
-        <div className="chat-bubble">
-          {msg.kind === 'invite' ? (
-            renderInvite(msg)
-          ) : editing ? (
-            <div className="chat-edit">
-              <textarea
-                className="input chat-edit-input"
-                value={editDraft}
-                autoFocus
-                onChange={(e) => setEditDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    editMessage(msg.id, editDraft);
-                    setEditingId(null);
-                  }
-                  if (e.key === 'Escape') setEditingId(null);
-                }}
-              />
-              <div className="btn-row">
-                <button
-                  className="btn btn-primary"
-                  onClick={() => {
-                    editMessage(msg.id, editDraft);
-                    setEditingId(null);
-                  }}
-                >
-                  {t('saveBtn')}
-                </button>
-                <button className="btn btn-ghost" onClick={() => setEditingId(null)}>
-                  {t('cancel')}
-                </button>
-              </div>
-            </div>
+      <div
+        key={msg.id}
+        className={`chat-msg ${mine ? 'mine' : 'theirs'} ${grouped ? 'grouped' : 'first'}`}
+      >
+        {!mine &&
+          (grouped ? (
+            <span className="chat-msg-avatar-spacer" aria-hidden />
           ) : (
-            <span className="chat-text">{msg.body}</span>
+            <Avatar userId={friend?.id} name={friend?.displayName ?? '?'} size={28} />
+          ))}
+
+        <div className="chat-msg-main">
+          <div className="chat-bubble">
+            {editing ? (
+              <div className="chat-edit">
+                <textarea
+                  className="ui-input ui-textarea chat-edit-input"
+                  value={editDraft}
+                  autoFocus
+                  onChange={(e) => setEditDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      editMessage(msg.id, editDraft);
+                      setEditingId(null);
+                    }
+                    if (e.key === 'Escape') setEditingId(null);
+                  }}
+                />
+                <div className="chat-edit-actions">
+                  <Button variant="ghost" size="sm" onClick={() => setEditingId(null)}>
+                    {t('cancel')}
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => {
+                      editMessage(msg.id, editDraft);
+                      setEditingId(null);
+                    }}
+                  >
+                    {t('saveBtn')}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <span className="chat-text">{msg.body}</span>
+                <span className="chat-meta">
+                  {timeLabel(msg.createdAt, lang)}
+                  {msg.editedAt && <span className="chat-edited"> {t('chatEdited')}</span>}
+                </span>
+              </>
+            )}
+          </div>
+
+          {msg.reactions.length > 0 && (
+            <div className="chat-reactions">
+              {msg.reactions.map((r) => (
+                <button
+                  key={r.emoji}
+                  type="button"
+                  className={`chat-reaction ${r.reactedByMe ? 'mine' : ''}`}
+                  onClick={() => toggleReaction(msg.id, r.emoji)}
+                >
+                  {r.emoji} <span className="chat-reaction-count">{r.count}</span>
+                </button>
+              ))}
+            </div>
           )}
-          <span className="chat-meta">
-            {timeLabel(msg.createdAt, lang)}
-            {msg.editedAt && <span className="chat-edited"> {t('chatEdited')}</span>}
-          </span>
         </div>
 
-        <div className="chat-msg-actions">
-          <button
-            className="chat-action"
-            title={t('chatAddReaction')}
-            onClick={() => setEmojiTarget({ kind: 'reaction', messageId: msg.id })}
-          >
-            ☺+
-          </button>
-          {mine && msg.kind === 'text' && !editing && (
+        {!editing && (
+          <div className="chat-msg-actions">
             <button
+              type="button"
               className="chat-action"
-              title={t('chatEditAction')}
-              onClick={() => {
-                setEditingId(msg.id);
-                setEditDraft(msg.body);
-              }}
+              title={t('chatAddReaction')}
+              aria-label={t('chatAddReaction')}
+              onClick={() => setEmojiTarget({ kind: 'reaction', messageId: msg.id })}
             >
-              ✎
+              <SmilePlus size={16} strokeWidth={1.75} aria-hidden />
             </button>
-          )}
-        </div>
-
-        {msg.reactions.length > 0 && (
-          <div className="chat-reactions">
-            {msg.reactions.map((r) => (
+            {mine && msg.kind === 'text' && (
               <button
-                key={r.emoji}
-                className={`chat-reaction ${r.reactedByMe ? 'mine' : ''}`}
-                onClick={() => toggleReaction(msg.id, r.emoji)}
+                type="button"
+                className="chat-action"
+                title={t('chatEditAction')}
+                aria-label={t('chatEditAction')}
+                onClick={() => {
+                  setEditingId(msg.id);
+                  setEditDraft(msg.body);
+                }}
               >
-                {r.emoji} {r.count}
+                <Pencil size={16} strokeWidth={1.75} aria-hidden />
               </button>
-            ))}
+            )}
           </div>
         )}
       </div>
     );
   }
 
-  const friend = conversation?.friend;
-
   return (
-    <PageShell title={t('menuChats')}>
-      <div className="card chat-card">
+    <PageShell title={friend?.displayName ?? t('loading')}>
+      <Card className="chat-card" flush>
         <div className="chat-header">
           {friend ? (
-            <Link className="friend-link" to={`/players/${friend.username}`}>
-              <Avatar userId={friend.id} name={friend.displayName} size={36} />
-              <span className="friend-name">
-                {friend.displayName} <span className="friend-username">@{friend.username}</span>
+            <Link className="chat-header-link" to={`/players/${friend.username}`}>
+              <span className="frow-avatar">
+                <Avatar userId={friend.id} name={friend.displayName} size={40} />
+                <span className={`presence-dot ${conversation?.online ? 'on' : ''}`} />
+              </span>
+              <span className="frow-text">
+                <span className="frow-name">{friend.displayName}</span>
                 <RatingBadge rating={friend.rating} />
               </span>
             </Link>
           ) : (
-            <span className="friend-name">{t('loading')}</span>
+            <Skeleton w={180} h={20} />
           )}
         </div>
 
         <div className="chat-list" ref={listRef} onScroll={onScroll}>
-          {thread?.loading && <p className="chat-loading">{t('loading')}</p>}
-          {thread && !thread.loading && messages.length === 0 && (
-            <p className="friends-empty">{t('chatNoMessagesYet')}</p>
+          {thread?.loading && messages.length === 0 && (
+            <div className="chat-skel">
+              {[0, 1, 2].map((i) => (
+                <Skeleton key={i} w={i % 2 ? '52%' : '38%'} h={38} radius="14px" className={i % 2 ? 'chat-skel-mine' : ''} />
+              ))}
+            </div>
           )}
-          {messages.map(renderMessage)}
+          {thread && !thread.loading && messages.length === 0 && (
+            <EmptyState icon={MessageSquare} title={t('chatNoMessagesYet')} />
+          )}
+          {messages.map((m, i) => renderMessage(m, i))}
         </div>
 
         {invitePicker && (
@@ -292,27 +339,16 @@ export function ChatThreadPage() {
         )}
 
         <div className="chat-composer">
-          <button
-            className="btn btn-ghost chat-composer-btn"
-            title={t('chatEmojiBtn')}
-            onClick={() => setEmojiTarget(emojiTarget?.kind === 'composer' ? null : { kind: 'composer' })}
-          >
-            ☺
-          </button>
-          <button
-            className="btn btn-ghost chat-composer-btn"
-            title={t('chatInviteBtn')}
-            onClick={() => setInvitePicker((v) => !v)}
-          >
-            ⚔
-          </button>
           <textarea
-            className="input chat-input"
+            className="ui-input ui-textarea chat-input"
             ref={inputRef}
             rows={1}
             value={draft}
             placeholder={t('chatPlaceholder')}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={(e) => {
+              setDraft(e.target.value);
+              autoresize(e.target);
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -320,13 +356,39 @@ export function ChatThreadPage() {
               }
             }}
           />
-          <button className="btn btn-primary" onClick={submitDraft} disabled={!draft.trim()}>
-            {t('chatSend')}
-          </button>
+          <div className="chat-composer-actions">
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={Smile}
+              title={t('chatEmojiBtn')}
+              aria-label={t('chatEmojiBtn')}
+              onClick={() =>
+                setEmojiTarget(emojiTarget?.kind === 'composer' ? null : { kind: 'composer' })
+              }
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={Swords}
+              title={t('chatInviteBtn')}
+              aria-label={t('chatInviteBtn')}
+              onClick={() => setInvitePicker((v) => !v)}
+            />
+            <Button
+              variant="primary"
+              size="sm"
+              icon={Send}
+              title={t('chatSend')}
+              aria-label={t('chatSend')}
+              onClick={submitDraft}
+              disabled={!draft.trim()}
+            />
+          </div>
         </div>
 
         {emojiTarget && <EmojiPicker onPick={pickEmoji} onClose={() => setEmojiTarget(null)} />}
-      </div>
+      </Card>
     </PageShell>
   );
 }

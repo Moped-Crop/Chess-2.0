@@ -4180,3 +4180,376 @@ h3,
 .danger-zone-hint {
   margin: 2px 0 0;
 }
+
+/* ============================================================
+   Экран: Друзья + чат (редизайн, фаза 6)
+   ============================================================ */
+.social-tabs {
+  margin-bottom: var(--sp-4);
+}
+.social-card {
+  margin-bottom: var(--sp-4);
+}
+
+/* --- Плотная строка друга/заявки --- */
+.frow-list {
+  display: flex;
+  flex-direction: column;
+}
+.frow {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 64px;
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+.frow-list > .frow:last-child,
+.frow-list > .frow-wrap:last-child .frow {
+  border-bottom: none;
+}
+.frow-id {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+}
+.frow-avatar {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+}
+.presence-dot {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  border: 2px solid var(--surface);
+}
+.presence-dot.on {
+  background: var(--success);
+}
+.frow-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+.frow-name {
+  font-weight: 650;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.frow-text .rating-badge {
+  align-self: flex-start;
+}
+.frow-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+.frow-action-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.frow-action-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  pointer-events: none;
+  border: 2px solid var(--surface);
+}
+.friend-add {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+.friend-add-field {
+  flex: 1;
+  min-width: 200px;
+  margin-bottom: 0;
+}
+
+/* --- Чат: тред --- */
+.chat-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.chat-header {
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+}
+.chat-header-link {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  color: inherit;
+}
+.chat-list {
+  display: flex;
+  flex-direction: column;
+  min-height: 240px;
+  max-height: 56vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--sp-3) var(--sp-4);
+}
+
+/* Сообщение = аватар (у чужих) + пузырь; свои прижаты вправо. */
+.chat-msg {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-2);
+}
+.chat-msg.first {
+  margin-top: var(--sp-3);
+}
+.chat-msg.grouped {
+  margin-top: var(--sp-1);
+}
+.chat-list > .chat-msg:first-child,
+.chat-list > .chat-invite-row:first-child {
+  margin-top: 0;
+}
+.chat-msg.mine {
+  flex-direction: row-reverse;
+}
+.chat-msg-avatar-spacer {
+  width: 28px;
+  flex: 0 0 auto;
+}
+.chat-msg-main {
+  display: flex;
+  flex-direction: column;
+  max-width: min(70%, 520px);
+  min-width: 0;
+}
+.chat-msg.mine .chat-msg-main {
+  align-items: flex-end;
+}
+.chat-bubble {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: var(--fs-md);
+  line-height: 1.4;
+}
+.chat-msg.theirs .chat-bubble {
+  border-bottom-left-radius: 4px;
+}
+.chat-msg.mine .chat-bubble {
+  background: var(--accent-soft);
+  border-color: transparent;
+  border-bottom-right-radius: 4px;
+}
+.chat-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.chat-meta {
+  align-self: flex-end;
+  margin-top: 2px;
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.chat-edited {
+  font-style: italic;
+}
+
+/* Реакции — прижаты к нижнему краю пузыря. */
+.chat-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: -6px;
+  padding-left: 10px;
+  position: relative;
+  z-index: 1;
+}
+.chat-msg.mine .chat-reactions {
+  padding-left: 0;
+  padding-right: 10px;
+  justify-content: flex-end;
+}
+.chat-reaction {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.chat-reaction.mine {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.chat-reaction-count {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Действия у сообщения — по наведению, тихо. */
+.chat-msg-actions {
+  display: flex;
+  gap: 2px;
+  align-self: center;
+  opacity: 0;
+  transition: opacity var(--t-fast) var(--ease);
+}
+.chat-msg:hover .chat-msg-actions,
+.chat-msg:focus-within .chat-msg-actions {
+  opacity: 1;
+}
+.chat-action {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition:
+    background var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease);
+}
+.chat-action:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+/* Карточка приглашения в ленте — не пузырь, на всю ширину колонки. */
+.chat-invite-row {
+  display: flex;
+}
+.chat-invite-card {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.chat-invite-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+.chat-invite-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.chat-invite-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.chat-invite-title {
+  font-weight: 700;
+}
+.chat-invite-tc {
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+.chat-invite-actions {
+  display: flex;
+  gap: var(--sp-2);
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+.chat-invite-status {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  flex: 0 0 auto;
+}
+
+/* Правка сообщения. */
+.chat-edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 240px;
+}
+.chat-edit-input {
+  min-height: 60px;
+}
+.chat-edit-actions {
+  display: flex;
+  gap: var(--sp-2);
+  justify-content: flex-end;
+}
+
+/* Панель ввода: textarea + три иконки справа. */
+.chat-composer {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  border-top: 1px solid var(--border);
+}
+.chat-input {
+  flex: 1;
+  min-height: 40px;
+  max-height: 120px;
+  resize: none;
+  line-height: 1.4;
+}
+.chat-composer-actions {
+  display: flex;
+  gap: var(--sp-1);
+  flex: 0 0 auto;
+}
+
+/* Скелетоны ленты. */
+.chat-skel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-2) 0;
+}
+.chat-skel-mine {
+  align-self: flex-end;
+}
+
+/* Пикер эмодзи в чате — над правой частью панели ввода. */
+.chat-card .emoji-picker {
+  left: auto;
+  right: 14px;
+}
+
+@media (max-width: 560px) {
+  .chat-msg-main {
+    max-width: 82%;
+  }
+}
